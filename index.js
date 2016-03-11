@@ -21,7 +21,7 @@ var promises = require('bluebird'),
 
 // Get what we need - environment, and the configuration specific to that environment
 var env = (process.env.NODE_ENV || 'development').toLowerCase(),
-	config = require(path.join(__dirname, 'config', 'env', 'index-config')).config,
+	config = require(path.join(__dirname, 'config', env, 'index-config')).config,
 	numCPUs = require('os').cpus().length;
 
 var timeoutMonitor = {},
@@ -95,18 +95,6 @@ if (cluster.isMaster) {
 			for(var id in cluster.workers) {
 				(cluster.workers[id]).send('terminate');
 			}
-/*
-			cluster.disconnectAsync()
-			.then(function() {
-				console.log('Twyr Server Master: Disconnected workers. Exiting now...');
-				return null;
-			})
-			.timeout(60000)
-			.catch(function(err) {
-				console.error('Twyr Server Master Exit Error: ' + JSON.stringify(err));
-				process.exit(1);
-			});
-*/
 		});
 	}
 	else {
@@ -124,21 +112,9 @@ if (cluster.isMaster) {
 				for(var id in cluster.workers) {
 					(cluster.workers[id]).send('terminate');
 				}
-/*
-				cluster.disconnectAsync()
-				.then(function() {
-					console.log('Twyr Server Master: Disconnected workers. Exiting now...');
 
-					socket.end();
-					telnetServer.close();
-					return null;
-				})
-				.timeout(60000)
-				.catch(function(err) {
-					console.error('Twyr Server Master Exit Error: ' + JSON.stringify(err));
-					process.exit(1);
-				});
-*/
+				socket.end();
+				telnetServer.close();
 			});
 		});
 

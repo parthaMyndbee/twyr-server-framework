@@ -1,22 +1,25 @@
 /*
- * Name			: config/development/index-config.js
+ * Name			: config/production/twyr-server.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
  * Version		: 0.9.1.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
- * Description	: The Twy'r Server cluster-level configuration parameters
+ * Description	: The Twy'r Server application-level configuration parameters
  *
  */
 
 "use strict";
 
 exports.config = ({
-	'loadFactor': 0.25,
-	'restart': false,
-
-	'repl': {
-		'prompt': ''
+	'utilities': {
+		'path': './modules/utilities'
 	},
 
-	'main' : './app/server'
+	'services': {
+		'path': './modules/services'
+	},
+
+	'components': {
+		'path': './modules/components'
+	}
 });

@@ -1,5 +1,5 @@
 /*
- * Name			: config/development/index-config.js
+ * Name			: config/production/index-config.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
  * Version		: 0.9.1.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
@@ -11,11 +11,20 @@
 "use strict";
 
 exports.config = ({
-	'loadFactor': 0.25,
-	'restart': false,
+	'loadFactor': 1.0,
+	'restart': true,
 
 	'repl': {
-		'prompt': ''
+		'controlPort': 1137,
+		'controlHost': '127.0.0.1',
+		'parameters': {
+			'prompt': 'Twy\'r Server >',
+			'terminal': true,
+			'useGlobal': false,
+
+			'input': null,
+			'output': null
+		}
 	},
 
 	'main' : './app/server'
