@@ -191,10 +191,10 @@ var twyrLoader = prime({
 				this.$module.$utilities[utility.name + 'Async'] = promises.promisify(utility.method.bind(this.$module));
 			}
 
-			if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': null });
+			if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': true });
 		}
 		catch(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': this.$module.name, 'type': 'utilities', 'status': err.message });
 		}
 	},
 
@@ -216,35 +216,28 @@ var twyrLoader = prime({
 			var definedServices = this._findFiles(path.join(this.$basePath, this.$module.$config.services.path), 'service.js');
 			for(var idx in definedServices) {
 				// Check validity of the definition...
-				var service = require(definedServices[idx]).service;
-				if(!service) continue;
+				var Service = require(definedServices[idx]).service;
+				if(!Service) continue;
 
-				if(!service.prototype.name || !service.prototype.dependencies)
+				if(!Service.prototype.name || !Service.prototype.dependencies)
 					continue;
 
-				if(!service.prototype.load || !service.prototype.initialize || !service.prototype.start || !service.prototype.stop || !service.prototype.uninitialize || !service.prototype.unload)
+				if(!Service.prototype.load || !Service.prototype.initialize || !Service.prototype.start || !Service.prototype.stop || !Service.prototype.uninitialize || !Service.prototype.unload)
 					continue;
 
 				// Ok... valid definition. Construct the service
-				service = new service();
-
-				// Create a loader for this service
-				var serviceLoader = promises.promisifyAll(new twyrLoader(path.dirname(definedServices[idx]), service), {
-					'filter': function(name, func) {
-						return true;
-					}
-				});
+				var serviceInstance = new Service(this.$module);
 
 				// Store the promisified object...
-				this.$module.$services[service.name] = promises.promisifyAll(service);
+				this.$module.$services[serviceInstance.name] = promises.promisifyAll(serviceInstance);
 
 				// Ask the service to load itself...
-				serviceNames.push(service.name);
-				promiseResolutions.push(service.loadAsync(this.$module, serviceLoader));
+				serviceNames.push(serviceInstance.name);
+				promiseResolutions.push(serviceInstance.loadAsync());
 			}
 		}
 		catch(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
 		}
 
 		// Wait for the services to load...
@@ -254,7 +247,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
 		});
 	},
 
@@ -276,35 +269,28 @@ var twyrLoader = prime({
 			var definedComponents = this._findFiles(path.join(this.$basePath, this.$module.$config.components.path), 'component.js');
 			for(var idx in definedComponents) {
 				// Check validity of the definition...
-				var component = require(definedComponents[idx]).component;
-				if(!component) continue;
+				var Component = require(definedComponents[idx]).component;
+				if(!Component) continue;
 
-				if(!component.prototype.name || !component.prototype.dependencies)
+				if(!Component.prototype.name || !Component.prototype.dependencies)
 					continue;
 
-				if(!component.prototype.load || !component.prototype.initialize || !component.prototype.start || !component.prototype.stop || !component.prototype.uninitialize || !component.prototype.unload)
+				if(!Component.prototype.load || !Component.prototype.initialize || !Component.prototype.start || !Component.prototype.stop || !Component.prototype.uninitialize || !Component.prototype.unload)
 					continue;
 
 				// Ok... valid definition. Construct the component
-				component = new component();
-
-				// Create a loader for this service
-				var componentLoader = promises.promisifyAll(new twyrLoader(path.dirname(definedComponents[idx]), component), {
-					'filter': function(name, func) {
-						return true;
-					}
-				});
+				var componentInstance = new Component(this.$module);
 
 				// Store the promisified object...
-				this.$module.$components[component.name] = promises.promisifyAll(component);
+				this.$module.$components[componentInstance.name] = promises.promisifyAll(componentInstance);
 
 				// Ask the component to load itself...
-				componentNames.push(component.name);
-				promiseResolutions.push(component.loadAsync(this.$module, componentLoader));
+				componentNames.push(componentInstance.name);
+				promiseResolutions.push(componentInstance.loadAsync());
 			}
 		}
 		catch(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
 		}
 
 		// Wait for the components to load...
@@ -314,7 +300,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
 		});
 	},
 
@@ -337,7 +323,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
 		});
 	},
 
@@ -360,7 +346,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
 		});
 	},
 
@@ -438,7 +424,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
 		});
 	},
 
@@ -489,7 +475,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
 		});
 	},
 
@@ -540,7 +526,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
 		});
 	},
 
@@ -564,7 +550,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
 		});
 	},
 
@@ -587,7 +573,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
 		});
 	},
 
@@ -610,7 +596,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
 		});
 	},
 
@@ -646,7 +632,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
 		})
 		.finally(function() {
 			delete self.$module['$services'];
@@ -678,7 +664,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err);
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
 		})
 		.finally(function() {
 			delete self.$module['$components'];
