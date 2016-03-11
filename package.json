@@ -26,10 +26,13 @@
 		"node": ">=4.0"
 	},
 	"dependencies": {
+		"bookshelf": "*",
 		"bluebird": "*",
 		"dependency-graph" :"*",
+		"knex": "*",
 		"node-print": "*",
 		"node-uuid": "*",
+		"pg": "*",
 		"prime":"*",
 		"winston": "*"
 	},

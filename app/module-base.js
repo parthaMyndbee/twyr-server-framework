@@ -1,7 +1,7 @@
 /*
  * Name			: app/module-base.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
- * Version		: 0.9.1.1
+ * Version		: 0.9.1.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
  * Description	: The Twy'r Server Base Module - serving as a template for all other modules, including the main server
@@ -13,7 +13,9 @@
 /**
  * Module dependencies, required for ALL Twy'r modules
  */
-var prime = require('prime'),
+var filesystem = require('fs'),
+	path = require('path'),
+	prime = require('prime'),
 	promises = require('bluebird');
 
 /**
@@ -35,7 +37,8 @@ var twyrModuleBase = prime({
 	},
 
 	'load': function(callback) {
-		console.log('\nTwy\'r Module Base Load');
+		console.log(this.name + ' Load');
+		var self = this;
 
 		this.$loader.loadAsync(__dirname)
 		.then(function(status) {
@@ -45,13 +48,14 @@ var twyrModuleBase = prime({
 			return null;
 		})
 		.catch(function(err) {
-			console.error('Twy\'r Module Base Load Error: ', err);
+			console.error(self.name + ' Load Error: ', err);
 			if(callback) callback(err);
 		});
 	},
 
 	'initialize': function(callback) {
-		console.log('\nTwy\'r Module Base Initialize');
+		console.log(this.name + ' Initialize');
+		var self = this;
 
 		this.$loader.initializeAsync()
 		.then(function(status) {
@@ -61,13 +65,14 @@ var twyrModuleBase = prime({
 			return null;
 		})
 		.catch(function(err) {
-			console.error('Twy\'r Module Base Initialize Error: ', err);
+			console.error(self.name + ' Initialize Error: ', err);
 			if(callback) callback(err);
 		});
 	},
 
 	'start': function(dependencies, callback) {
-		console.log('\nTwy\'r Module Base Start');
+		console.log(this.name + ' Start');
+		var self = this;
 
 		this.$loader.startAsync(dependencies)
 		.then(function(status) {
@@ -77,13 +82,14 @@ var twyrModuleBase = prime({
 			return null;
 		})
 		.catch(function(err) {
-			console.error('Twy\'r Module Base Start Error: ', err);
+			console.error(self.name + ' Start Error: ', err);
 			if(callback) callback(err);
 		});
 	},
 
 	'stop': function(callback) {
-		console.log('\nTwy\'r Module Base Stop');
+		console.log(this.name + ' Stop');
+		var self = this;
 
 		this.$loader.stopAsync()
 		.then(function(status) {
@@ -93,13 +99,14 @@ var twyrModuleBase = prime({
 			return null;
 		})
 		.catch(function(err) {
-			console.error('Twy\'r Module Base Stop Error: ', err);
+			console.error(self.name + ' Stop Error: ', err);
 			if(callback) callback(err);
 		});
 	},
 
 	'uninitialize': function(callback) {
-		console.log('\nTwy\'r Module Base Uninitialize');
+		console.log(this.name + ' Uninitialize');
+		var self = this;
 
 		this.$loader.uninitializeAsync()
 		.then(function(status) {
@@ -109,15 +116,15 @@ var twyrModuleBase = prime({
 			return null;
 		})
 		.catch(function(err) {
-			console.error('Twy\'r Module Base Uninitialize Error: ', err);
+			console.error(self.name + ' Uninitialize Error: ', err);
 			if(callback) callback(err);
 		});
 	},
 
 	'unload': function(callback) {
-		console.log('\nTwy\'r Module Base Unload');
-
+		console.log(this.name + ' Unload');
 		var self = this;
+
 		this.$loader.unloadAsync()
 		.then(function(status) {
 			if(!status) throw status;
@@ -126,7 +133,7 @@ var twyrModuleBase = prime({
 			return null;
 		})
 		.catch(function(err) {
-			console.error('Twy\'r Module Base Unload Error: ', err);
+			console.error(self.name + ' Unload Error: ', err);
 			if(callback) callback(err);
 		})
 		.finally(function() {
@@ -138,11 +145,24 @@ var twyrModuleBase = prime({
 	},
 
 	'_loadConfig': function() {
-		// Load / Store the configuration...
-		var env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			config = require(path.join(__dirname, 'config', env, 'server-config')).config;
+		var rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			config = require(path.join(rootPath, 'config', env, this.name)).config;
 
 		this['$config'] = config;
+	},
+
+	'_saveConfig': function (config) {
+		var rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			configPath = path.join(rootPath, 'config', env, this.name),
+			self = this;
+
+		var configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
+		filesystem.writeFile(configPath, configString, function (err) {
+			if (err) console.error(self.name + ' Config Write Error: ' + err.message);
+			self['$config'] = config;
+		});
 	},
 
 	'name': 'twyr-module-base',

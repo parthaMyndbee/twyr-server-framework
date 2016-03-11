@@ -1,7 +1,7 @@
 /*
  * Name			: app/loader.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
- * Version		: 0.9.1.1
+ * Version		: 0.9.1.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
  * Description	: The Twy'r Server dependency manager and service/component loader
@@ -56,7 +56,7 @@ var twyrLoader = prime({
 		promises.all(promiseResolutions)
 		.then(function(status) {
 			if(!status) throw status;
-			if(callback) callback(null, status);
+			if(callback) callback(null, self._filterStatus(status));
 
 			return null;
 		})
@@ -75,7 +75,7 @@ var twyrLoader = prime({
 		promises.all(promiseResolutions)
 		.then(function(status) {
 			if(!status) throw status;
-			if(callback) callback(null, status);
+			if(callback) callback(null, self._filterStatus(status));
 
 			return null;
 		})
@@ -99,7 +99,7 @@ var twyrLoader = prime({
 			if(!status) throw status;
 			finalStatus.push(status);
 
-			if (callback) callback(null, finalStatus);
+			if(callback) callback(null, self._filterStatus(finalStatus));
 			return null;
 		})
 		.catch(function(err) {
@@ -122,7 +122,7 @@ var twyrLoader = prime({
 			if(!status) throw status;
 			finalStatus.push(status);
 
-			if (callback) callback(null, finalStatus);
+			if(callback) callback(null, self._filterStatus(finalStatus));
 			return null;
 		})
 		.catch(function(err) {
@@ -141,7 +141,7 @@ var twyrLoader = prime({
 		.then(function(status) {
 			if(!status) throw status;
 
-			if (callback) callback(null, status);
+			if(callback) callback(null, self._filterStatus(status));
 			return null;
 		})
 		.catch(function(err) {
@@ -160,7 +160,8 @@ var twyrLoader = prime({
 		promises.all(promiseResolutions)
 		.then(function(status) {
 			if(!status) throw status;
-			if(callback) callback(null, status);
+
+			if(callback) callback(null, self._filterStatus(status));
 			return null;
 		})
 		.catch(function(err) {
@@ -179,7 +180,8 @@ var twyrLoader = prime({
 				this.$module['$utilities'] = {};
 			}
 
-			var definedUtilities = this._findFiles(path.join(this.$basePath, this.$module.$config.utilities.path), 'utility.js');
+			var definedUtilities = this._findFiles(path.join(this.$basePath, this.$module.$config.utilities.path), 'utility.js'),
+				didLoadUtilities = null;
 			for(var idx in definedUtilities) {
 				var utility = require(definedUtilities[idx]).utility;
 				if(!utility) continue;
@@ -189,9 +191,11 @@ var twyrLoader = prime({
 
 				this.$module.$utilities[utility.name] = utility.method.bind(this.$module);
 				this.$module.$utilities[utility.name + 'Async'] = promises.promisify(utility.method.bind(this.$module));
+
+				didLoadUtilities = true;
 			}
 
-			if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': true });
+			if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': didLoadUtilities });
 		}
 		catch(err) {
 			if(callback) callback(err, { 'self': this.$module.name, 'type': 'utilities', 'status': err.message });
@@ -382,7 +386,6 @@ var twyrLoader = prime({
 			promiseResolutions = [],
 			serviceNames = [];
 
-		console.log('Service Start Order for ' + this.$module.name + ':\n' + JSON.stringify(initOrderList, null, '\t'));
 		for(var initOrderIdx in initOrderList) {
 			var thisServiceName = initOrderList[initOrderIdx],
 				thisService = this.$module.$services[thisServiceName],
@@ -510,7 +513,6 @@ var twyrLoader = prime({
 			promiseResolutions = [],
 			serviceNames = [];
 
-		console.log('Service Stop Order for ' + this.$module.name + ':\n' + JSON.stringify(initOrderList, null, '\t'));
 		for(var initOrderIdx in initOrderList) {
 			var thisServiceName = initOrderList[initOrderIdx],
 				thisService = this.$module.$services[thisServiceName];
@@ -600,13 +602,16 @@ var twyrLoader = prime({
 		});
 	},
 
-	'_unloadUtilities': function(callback) {
+	'_unloadUtilities': function (callback) {
+		var didUnloadUtility = null;
+
 		for(var idx in this.$module.$utilities) {
 			delete this.$module.$utilities[idx];
+			didUnloadUtility = true;
 		}
 
 		delete this.$module['$utilities'];
-		if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': null });
+		if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': didUnloadUtility });
 	},
 
 	'_unloadServices': function(callback) {
@@ -645,7 +650,7 @@ var twyrLoader = prime({
 			componentNames = [],
 			self = this;
 
-		// Step 1: Stop each component
+		// Step 1: Unload each component
 		for(var componentIdx in this.$module.$components) {
 			var thisComponent = this.$module.$components[componentIdx];
 
@@ -700,6 +705,30 @@ var twyrLoader = prime({
 		}
 
 		return finalList;
+	},
+
+	'_filterStatus': function (status) {
+		var filteredStatus = [],
+			self = this;
+
+		status.forEach(function (thisStatus) {
+			if (thisStatus.status === null)
+				return;
+
+			if (typeof (thisStatus.status) == 'object') {
+				Object.keys(thisStatus.status).forEach(function (key) {
+					if (!Array.isArray(thisStatus.status[key]))
+						return;
+
+					thisStatus.status[key] = self._filterStatus(thisStatus.status[key]);
+					if (!thisStatus.status[key].length) thisStatus.status[key] = true;
+				});
+			}
+
+			filteredStatus.push(thisStatus);
+		});
+
+		return filteredStatus;
 	},
 
 	'_processPromises': function(names, promiseResolutions, callback) {

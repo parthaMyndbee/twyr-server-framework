@@ -1,7 +1,7 @@
 /*
  * Name			: app/server.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
- * Version		: 0.9.1.1
+ * Version		: 0.9.1.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
  * Description	: The Twy'r Server Module - the "Application Class" for the Server
@@ -26,6 +26,7 @@ var app = prime({
 
 	'constructor': function (module) {
 		base.call(this, module);
+		this._loadConfig();
 	},
 
 	'name': 'twyr-server',

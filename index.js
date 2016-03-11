@@ -1,7 +1,7 @@
 /*
  * Name			: index.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
- * Version		: 0.9.1.1
+ * Version		: 0.9.1.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
  * Description	: Entry point into the Twy'r Server Framework
@@ -31,14 +31,14 @@ var timeoutMonitor = {},
 if (cluster.isMaster) {
 	cluster
 		.on('fork', function(worker) {
-			console.log('\nForked Twyr Server #' + worker.id + '\n');
+			console.log('\nForked Twyr Server #' + worker.id);
 			timeoutMonitor[worker.id] = setTimeout(function() {
 				console.error('Twyr Server #' + worker.id + ' did not start in time! KILL!!');
 				worker.kill();
 			}, 5000);
 		})
 		.on('online', function(worker, address) {
-			console.log('\nTwyr Server #' + worker.id + ': Now online!\n');
+			console.log('Twyr Server #' + worker.id + ': Now online!\n');
 			clearTimeout(timeoutMonitor[worker.id]);
 		})
 		.on('listening', function(worker, address) {
@@ -65,16 +65,16 @@ if (cluster.isMaster) {
 			console.log('\n');
 		})
 		.on('disconnect', function(worker) {
-			console.log('\nTwyr Server #' + worker.id + ': Disconnected\n');
+			console.log('Twyr Server #' + worker.id + ': Disconnected');
 			clearTimeout(timeoutMonitor[worker.id]);
 		})
 		.on('exit', function(worker, code, signal) {
-			console.log('\nTwyr Server #' + worker.id + ': Exited with code: ' + code + ' on signal: ' + signal + '\n');
+			console.log('Twyr Server #' + worker.id + ': Exited with code: ' + code + ' on signal: ' + signal);
 			clearTimeout(timeoutMonitor[worker.id]);
 			if (cluster.isMaster && config['restart']) cluster.fork();
 		})
 		.on('death', function(worker) {
-			console.error('\nTwyr Server #' + worker.pid + ': Death! Restarting...\n');
+			console.error('Twyr Server #' + worker.pid + ': Death!');
 			clearTimeout(timeoutMonitor[worker.id]);
 			if (cluster.isMaster && config['restart']) cluster.fork();
 		});
@@ -95,7 +95,7 @@ if (cluster.isMaster) {
 			for(var id in cluster.workers) {
 				(cluster.workers[id]).send('terminate');
 			}
-
+/*
 			cluster.disconnectAsync()
 			.then(function() {
 				console.log('Twyr Server Master: Disconnected workers. Exiting now...');
@@ -106,6 +106,7 @@ if (cluster.isMaster) {
 				console.error('Twyr Server Master Exit Error: ' + JSON.stringify(err));
 				process.exit(1);
 			});
+*/
 		});
 	}
 	else {
@@ -123,7 +124,7 @@ if (cluster.isMaster) {
 				for(var id in cluster.workers) {
 					(cluster.workers[id]).send('terminate');
 				}
-
+/*
 				cluster.disconnectAsync()
 				.then(function() {
 					console.log('Twyr Server Master: Disconnected workers. Exiting now...');
@@ -137,6 +138,7 @@ if (cluster.isMaster) {
 					console.error('Twyr Server Master Exit Error: ' + JSON.stringify(err));
 					process.exit(1);
 				});
+*/
 			});
 		});
 
@@ -155,61 +157,61 @@ else {
 		twyrServer.loadAsync()
 		.timeout(1000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Load status:\n' + JSON.stringify(status, null, '\t'));
+			console.log('Twyr Server #' + cluster.worker.id + '::Load status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if(!status) throw status;
 
 			return twyrServer.initializeAsync();
 		})
 		.timeout(60000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Initialize status:\n' + JSON.stringify(status, null, '\t'));
+			console.log('Twyr Server #' + cluster.worker.id + '::Initialize status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if(!status) throw status;
 
 			return twyrServer.startAsync(null);
 		})
 		.timeout(60000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Start Status:\n' + JSON.stringify(status, null, '\t'));
+			console.log('Twyr Server #' + cluster.worker.id + '::Start Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if(!status) throw status;
 
 			return null;
 		})
 		.timeout(60000)
 		.catch(function(err) {
-			console.error('Twyr Server #' + cluster.worker.id + '::Startup Error:\n' + JSON.stringify(err));
+			console.error('\n\n' + 'Twyr Server #' + cluster.worker.id + '::Startup Error:\n' + JSON.stringify(err, null, '\t') + '\n\n');
 	        cluster.worker.disconnect();
 		});
 	};
 
 	var shutdownFn = function () {
 		twyrServer.stopAsync()
-		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Stop Status:\n' + JSON.stringify(status, null, '\t'));
-			if(!status) throw status;
+		.then(function (status) {
+			console.log('Twyr Server #' + cluster.worker.id + '::Stop Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			if (!status) throw status;
 
 			return twyrServer.uninitializeAsync();
 		})
 		.timeout(60000)
-		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Uninitialize Status:\n' + JSON.stringify(status, null, '\t'));
-			if(!status) throw status;
+		.then(function (status) {
+			console.log('Twyr Server #' + cluster.worker.id + '::Uninitialize Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			if (!status) throw status;
 
 			return twyrServer.unloadAsync();
 		})
 		.timeout(60000)
-		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Unload Status:\n' + JSON.stringify(status, null, '\t'));
-			if(!status) throw status;
+		.then(function (status) {
+			console.log('Twyr Server #' + cluster.worker.id + '::Unload Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			if (!status) throw status;
 
 			return null;
 		})
 		.timeout(60000)
-		.catch(function(err) {
-			console.error('Twyr Server #' + cluster.worker.id + '::Shutdown Error:\n' + JSON.stringify(err));
-		})
-		.finally(function() {
+		.then(function() {
 	        cluster.worker.disconnect();
 			return null;
+		})
+		.catch(function (err) {
+			console.error('\n\n' + 'Twyr Server #' + cluster.worker.id + '::Shutdown Error:\n' + JSON.stringify(err, null, '\t') + '\n\n');
 		});
 	};
 
@@ -219,12 +221,12 @@ else {
 	});
 
 	serverDomain.on('error', function(error) {
-		console.log('Twyr Server #' + cluster.worker.id + ': Domain Error:\n', error.stack);
+		console.error('Twyr Server #' + cluster.worker.id + '::Domain Error:\n', JSON.stringify(err, null, '\t'));
 		shutdownFn();
 	});
 
 	process.on('uncaughtException', function(err) {
-		console.error('Twyr Server #' + cluster.worker.id + ': Process Error: ', err);
+		console.error('Twyr Server #' + cluster.worker.id + '::Process Error: ', JSON.stringify(err, null, '\t'));
 		process.exit(1);
 	});
 
