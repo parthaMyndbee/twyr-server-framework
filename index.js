@@ -19,19 +19,13 @@ var promises = require('bluebird'),
 	printf = require('node-print'),
 	repl = require('repl');
 
-var numCPUs = require('os').cpus().length,
-	TwyrLoader = require('./loader').loader,
-	TwyrServer = require('./server').twyrServer;
-
 // Get what we need - environment, and the configuration specific to that environment
-var env = (process.env.NODE_ENV || 'development').toLowerCase(),
-	config = require(path.join(__dirname, 'config', env, 'index-config')).config;
+var config = require(path.join(__dirname, 'config', 'index-config')).config,
+	env = (process.env.NODE_ENV || 'development').toLowerCase(),
+	numCPUs = require('os').cpus().length;
 
-var telnetServer = null,
-	timeoutMonitor = {};
-
-// Setup the Cluster
-var cluster = promises.promisifyAll(require('cluster'));
+var timeoutMonitor = {},
+	cluster = promises.promisifyAll(require('cluster'));
 
 // Instantiate the application, and start the execution
 if (cluster.isMaster) {
@@ -39,6 +33,7 @@ if (cluster.isMaster) {
 		.on('fork', function(worker) {
 			console.log('\nForked Twyr Server #' + worker.id + '\n');
 			timeoutMonitor[worker.id] = setTimeout(function() {
+				console.error('Twyr Server #' + worker.id + ' did not start in time! KILL!!');
 				worker.kill();
 			}, 5000);
 		})
@@ -70,16 +65,16 @@ if (cluster.isMaster) {
 			console.log('\n');
 		})
 		.on('disconnect', function(worker) {
-			console.log('\nTwyr API Server #' + worker.id + ': Disconnected\n');
+			console.log('\nTwyr Server #' + worker.id + ': Disconnected\n');
 			clearTimeout(timeoutMonitor[worker.id]);
 		})
 		.on('exit', function(worker, code, signal) {
-			console.log('\nTwyr API Server #' + worker.id + ': Exited with code: ' + code + ' on signal: ' + signal + '\n');
+			console.log('\nTwyr Server #' + worker.id + ': Exited with code: ' + code + ' on signal: ' + signal + '\n');
 			clearTimeout(timeoutMonitor[worker.id]);
 			if (cluster.isMaster && config['restart']) cluster.fork();
 		})
 		.on('death', function(worker) {
-			console.error('\nTwyr API Server #' + worker.pid + ': Death! Restarting...\n');
+			console.error('\nTwyr Server #' + worker.pid + ': Death! Restarting...\n');
 			clearTimeout(timeoutMonitor[worker.id]);
 			if (cluster.isMaster && config['restart']) cluster.fork();
 		});
@@ -114,7 +109,7 @@ if (cluster.isMaster) {
 		});
 	}
 	else {
-		telnetServer = require('net').createServer(function(socket) {
+		var telnetServer = require('net').createServer(function(socket) {
 			config.repl.parameters.input = socket;
 			config.repl.parameters.output = socket;
 
@@ -152,114 +147,86 @@ else {
 	// Worker processes have a Twyr Server running in their own
 	// domain so that the rest of the process is not infected on error
 	var serverDomain = domain.create(),
-		twyrServer = promises.promisifyAll(new TwyrServer());
+		TwyrServer = require(config['main']).twyrServer,
+		twyrServer = promises.promisifyAll(new TwyrServer(null));
 
-	serverDomain.on('error', function(error) {
-		console.log('Twyr Server #' + cluster.worker.id + ': Domain Error:\n', error.stack);
-
-		twyrServer.stopAsync()
-		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + ': Stop Status:\n' + JSON.stringify(status, null, '\t'));
-			if(!status) throw status;
-
-			return twyrServer.uninitializeAsync();
-		})
-		.timeout(60000)
-		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + ': Uninitialize Status:\n' + JSON.stringify(status, null, '\t'));
-			if(!status) throw status;
-
-			return twyrServer.unloadAsync();
-		})
-		.timeout(60000)
-		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + ': Unload Status:\n' + JSON.stringify(status, null, '\t'));
-			if(!status) throw status;
-
-			return null;
-		})
-		.timeout(60000)
-		.catch(function(err) {
-			console.error('Twyr Server #' + cluster.worker.id + ': Shutdown Error:\n' + JSON.stringify(err));
-		})
-		.finally(function() {
-	        cluster.worker.disconnect();
-			return null;
-		});
-	});
-
-	serverDomain.run(function() {
-		// Create a loader for this application
-		var appLoader = promises.promisifyAll(new TwyrLoader(__dirname, twyrServer), {
-			'filter': function(name, func) {
-				return true;
-			}
-		});
-
+	var startupFn = function () {
 		// Call load / initialize / start...
-		twyrServer.loadAsync(null, appLoader)
+		twyrServer.loadAsync()
 		.timeout(1000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + ': Load status:\n' + JSON.stringify(status, null, '\t'));
+			console.log('Twyr Server #' + cluster.worker.id + '::Load status:\n' + JSON.stringify(status, null, '\t'));
 			if(!status) throw status;
 
 			return twyrServer.initializeAsync();
 		})
 		.timeout(60000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + ': Initialize status:\n' + JSON.stringify(status, null, '\t'));
+			console.log('Twyr Server #' + cluster.worker.id + '::Initialize status:\n' + JSON.stringify(status, null, '\t'));
 			if(!status) throw status;
 
 			return twyrServer.startAsync(null);
 		})
 		.timeout(60000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + ': Start Status:\n' + JSON.stringify(status, null, '\t'));
+			console.log('Twyr Server #' + cluster.worker.id + '::Start Status:\n' + JSON.stringify(status, null, '\t'));
 			if(!status) throw status;
 
 			return null;
 		})
 		.timeout(60000)
 		.catch(function(err) {
-			console.error('Twyr Server #' + cluster.worker.id + ': Startup Error:\n' + JSON.stringify(err));
+			console.error('Twyr Server #' + cluster.worker.id + '::Startup Error:\n' + JSON.stringify(err));
 	        cluster.worker.disconnect();
 		});
+	};
 
-		process.on('message', function(msg) {
-			if(msg != 'terminate') return;
+	var shutdownFn = function () {
+		twyrServer.stopAsync()
+		.then(function(status) {
+			console.log('Twyr Server #' + cluster.worker.id + '::Stop Status:\n' + JSON.stringify(status, null, '\t'));
+			if(!status) throw status;
 
-			twyrServer.stopAsync()
-			.then(function(status) {
-				console.log('Twyr Server #' + cluster.worker.id + ': Stop Status:\n' + JSON.stringify(status, null, '\t'));
-				if(!status) throw status;
+			return twyrServer.uninitializeAsync();
+		})
+		.timeout(60000)
+		.then(function(status) {
+			console.log('Twyr Server #' + cluster.worker.id + '::Uninitialize Status:\n' + JSON.stringify(status, null, '\t'));
+			if(!status) throw status;
 
-				return twyrServer.uninitializeAsync();
-			})
-			.timeout(60000)
-			.then(function(status) {
-				console.log('Twyr Server #' + cluster.worker.id + ': Uninitialize Status:\n' + JSON.stringify(status, null, '\t'));
-				if(!status) throw status;
+			return twyrServer.unloadAsync();
+		})
+		.timeout(60000)
+		.then(function(status) {
+			console.log('Twyr Server #' + cluster.worker.id + '::Unload Status:\n' + JSON.stringify(status, null, '\t'));
+			if(!status) throw status;
 
-				return twyrServer.unloadAsync();
-			})
-			.timeout(60000)
-			.then(function(status) {
-				console.log('Twyr Server #' + cluster.worker.id + ': Unload Status:\n' + JSON.stringify(status, null, '\t'));
-				if(!status) throw status;
-
-				return null;
-			})
-			.timeout(60000)
-			.catch(function(err) {
-				console.error('Twyr Server #' + cluster.worker.id + ': Shutdown Error:\n' + JSON.stringify(err));
-		        cluster.worker.disconnect();
-			});
+			return null;
+		})
+		.timeout(60000)
+		.catch(function(err) {
+			console.error('Twyr Server #' + cluster.worker.id + '::Shutdown Error:\n' + JSON.stringify(err));
+		})
+		.finally(function() {
+	        cluster.worker.disconnect();
+			return null;
 		});
-	});
-}
+	};
 
-// Handle any uncaught exceptions...
-process.on('uncaughtException', function(err) {
-	console.error('Twyr Server Process Error: ', err);
-	process.exit(1);
-});
+	process.on('message', function(msg) {
+		if(msg != 'terminate') return;
+		shutdownFn();
+	});
+
+	serverDomain.on('error', function(error) {
+		console.log('Twyr Server #' + cluster.worker.id + ': Domain Error:\n', error.stack);
+		shutdownFn();
+	});
+
+	process.on('uncaughtException', function(err) {
+		console.error('Twyr Server #' + cluster.worker.id + ': Process Error: ', err);
+		process.exit(1);
+	});
+
+	serverDomain.run(startupFn);
+}

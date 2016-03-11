@@ -16,5 +16,7 @@ exports.config = ({
 
 	'repl': {
 		'prompt': ''
-	}
+	},
+
+	'main' : './app/server'
 });

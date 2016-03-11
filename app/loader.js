@@ -1,5 +1,5 @@
 /*
- * Name			: loader.js
+ * Name			: app/loader.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
  * Version		: 0.9.1
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
@@ -24,7 +24,7 @@ var dependencyGraph = require('dependency-graph').DepGraph,
 	path = require('path');
 
 var twyrLoader = prime({
-	'constructor': function(basePath, module) {
+	'constructor': function(module) {
 		// Sanity Check: The module itself must be valid...
 		if(!module.name || !module.dependencies) {
 			return;
@@ -34,20 +34,20 @@ var twyrLoader = prime({
 			return;
 		}
 
-		Object.defineProperty(this, '$basePath', {
-			'__proto__': null,
-			'value': path.resolve(basePath)
-		});
-
 		Object.defineProperty(this, '$module', {
 			'__proto__': null,
 			'value': module
 		});
 	},
 
-	'load': function(callback) {
+	'load': function(basePath, callback) {
 		var promiseResolutions = [],
 			self = this;
+
+		Object.defineProperty(this, '$basePath', {
+			'__proto__': null,
+			'value': path.resolve(basePath)
+		});
 
 		promiseResolutions.push(self._loadUtilitiesAsync());
 		promiseResolutions.push(self._loadServicesAsync());
