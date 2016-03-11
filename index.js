@@ -129,25 +129,27 @@ else {
 		twyrServer = promises.promisifyAll(new TwyrServer(null));
 
 	var startupFn = function () {
+		var allStatuses = [];
+
 		// Call load / initialize / start...
 		twyrServer.loadAsync()
 		.timeout(1000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Load status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			allStatuses.push('Twyr Server #' + cluster.worker.id + '::Load status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if(!status) throw status;
 
 			return twyrServer.initializeAsync();
 		})
 		.timeout(60000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Initialize status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			allStatuses.push('Twyr Server #' + cluster.worker.id + '::Initialize status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if(!status) throw status;
 
 			return twyrServer.startAsync(null);
 		})
 		.timeout(60000)
 		.then(function(status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Start Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			allStatuses.push('Twyr Server #' + cluster.worker.id + '::Start Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if(!status) throw status;
 
 			return null;
@@ -156,27 +158,33 @@ else {
 		.catch(function(err) {
 			console.error('\n\n' + 'Twyr Server #' + cluster.worker.id + '::Startup Error:\n' + JSON.stringify(err, null, '\t') + '\n\n');
 	        cluster.worker.disconnect();
+		})
+		.finally(function () {
+			console.log(allStatuses.join('\n'));
+			return null;
 		});
 	};
 
 	var shutdownFn = function () {
+		var allStatuses = [];
+
 		twyrServer.stopAsync()
 		.then(function (status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Stop Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			allStatuses.push('Twyr Server #' + cluster.worker.id + '::Stop Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if (!status) throw status;
 
 			return twyrServer.uninitializeAsync();
 		})
 		.timeout(60000)
 		.then(function (status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Uninitialize Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			allStatuses.push('Twyr Server #' + cluster.worker.id + '::Uninitialize Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if (!status) throw status;
 
 			return twyrServer.unloadAsync();
 		})
 		.timeout(60000)
 		.then(function (status) {
-			console.log('Twyr Server #' + cluster.worker.id + '::Unload Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
+			allStatuses.push('Twyr Server #' + cluster.worker.id + '::Unload Status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
 			if (!status) throw status;
 
 			return null;
@@ -188,6 +196,10 @@ else {
 		})
 		.catch(function (err) {
 			console.error('\n\n' + 'Twyr Server #' + cluster.worker.id + '::Shutdown Error:\n' + JSON.stringify(err, null, '\t') + '\n\n');
+		})
+		.finally(function () {
+			console.log(allStatuses.join('\n'));
+			return null;
 		});
 	};
 
