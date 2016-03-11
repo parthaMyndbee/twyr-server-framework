@@ -20,8 +20,8 @@ var promises = require('bluebird'),
 	repl = require('repl');
 
 // Get what we need - environment, and the configuration specific to that environment
-var config = require(path.join(__dirname, 'config', 'index-config')).config,
-	env = (process.env.NODE_ENV || 'development').toLowerCase(),
+var env = (process.env.NODE_ENV || 'development').toLowerCase(),
+	config = require(path.join(__dirname, 'config', 'env', 'index-config')).config,
 	numCPUs = require('os').cpus().length;
 
 var timeoutMonitor = {},
