@@ -29,7 +29,6 @@ var databaseService = prime({
 
 	'constructor': function(module) {
 		base.call(this, module);
-		this._loadConfig();
 	},
 
 	'start': function(dependencies, callback) {

@@ -26,7 +26,6 @@ var app = prime({
 
 	'constructor': function (module) {
 		base.call(this, module);
-		this._loadConfig();
 	},
 
 	'name': 'twyr-server',

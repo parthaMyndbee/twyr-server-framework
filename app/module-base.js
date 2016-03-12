@@ -34,13 +34,18 @@ var twyrModuleBase = prime({
 				return true;
 			}
 		});
+
+		this._existsAsync = promises.promisify(this._exists);
 	},
 
 	'load': function(callback) {
-		console.log(this.name + ' Load');
+		// console.log(this.name + ' Load');
 		var self = this;
 
-		this.$loader.loadAsync(__dirname)
+		this.loadConfigAsync()
+		.then(function() {
+			return self.$loader.loadAsync(__dirname);
+		})
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
@@ -54,7 +59,7 @@ var twyrModuleBase = prime({
 	},
 
 	'initialize': function(callback) {
-		console.log(this.name + ' Initialize');
+		// console.log(this.name + ' Initialize');
 		var self = this;
 
 		this.$loader.initializeAsync()
@@ -71,7 +76,7 @@ var twyrModuleBase = prime({
 	},
 
 	'start': function(dependencies, callback) {
-		console.log(this.name + ' Start');
+		// console.log(this.name + ' Start');
 		var self = this;
 
 		this.$loader.startAsync(dependencies)
@@ -88,7 +93,7 @@ var twyrModuleBase = prime({
 	},
 
 	'stop': function(callback) {
-		console.log(this.name + ' Stop');
+		// console.log(this.name + ' Stop');
 		var self = this;
 
 		this.$loader.stopAsync()
@@ -105,7 +110,7 @@ var twyrModuleBase = prime({
 	},
 
 	'uninitialize': function(callback) {
-		console.log(this.name + ' Uninitialize');
+		// console.log(this.name + ' Uninitialize');
 		var self = this;
 
 		this.$loader.uninitializeAsync()
@@ -122,7 +127,7 @@ var twyrModuleBase = prime({
 	},
 
 	'unload': function(callback) {
-		console.log(this.name + ' Unload');
+		// console.log(this.name + ' Unload');
 		var self = this;
 
 		this.$loader.unloadAsync()
@@ -144,24 +149,50 @@ var twyrModuleBase = prime({
 		});
 	},
 
-	'_loadConfig': function() {
+	'loadConfig': function(callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			config = require(path.join(rootPath, 'config', env, this.name)).config;
+			self = this;
 
-		this['$config'] = config;
+		self._existsAsync(path.join(rootPath, 'config', env, self.name + '.js'))
+		.then(function (doesExist) {
+			var config = {};
+
+			if (doesExist) {
+				config = require(path.join(rootPath, 'config', env, self.name)).config;
+				self['$config'] = config;
+			}
+
+			if(callback) callback(null, config);
+			return null;
+		})
+		.catch(function (err) {
+			console.error(self.name + ' Load Configuration Error: ', err);
+			if(callback) callback(err);
+		});
 	},
 
-	'_saveConfig': function (config) {
+	'saveConfig': function (config, callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			configPath = path.join(rootPath, 'config', env, this.name),
+			configPath = path.join(rootPath, 'config', env, this.name + '.js'),
 			self = this;
 
 		var configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 		filesystem.writeFile(configPath, configString, function (err) {
-			if (err) console.error(self.name + ' Config Write Error: ' + err.message);
+			if (err) {
+				if(callback) callback(err);
+				return;
+			}
+
 			self['$config'] = config;
+			if(callback) callback(null, config);
+		});
+	},
+
+	'_exists': function (path, callback) {
+		filesystem.exists(path, function (doesExist) {
+			if(callback) callback(null, doesExist);
 		});
 	},
 
