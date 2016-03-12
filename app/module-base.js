@@ -191,8 +191,8 @@ var twyrModuleBase = prime({
 	},
 
 	'_exists': function (path, callback) {
-		filesystem.exists(path, function (doesExist) {
-			if(callback) callback(null, doesExist);
+		filesystem.access(path, filesystem.F_OK, function (err) {
+			if(callback) callback(null, !err);
 		});
 	},
 
