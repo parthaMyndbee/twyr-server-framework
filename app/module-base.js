@@ -154,7 +154,7 @@ var twyrModuleBase = prime({
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
 			self = this;
 
-		self._existsAsync(path.join(rootPath, 'config', env, self.name + '.js'))
+		self._existsAsync(path.join(rootPath, 'config', env, self.name + '.js'), filesystem.R_OK)
 		.then(function (doesExist) {
 			var config = {};
 
@@ -190,8 +190,8 @@ var twyrModuleBase = prime({
 		});
 	},
 
-	'_exists': function (path, callback) {
-		filesystem.access(path, filesystem.F_OK, function (err) {
+	'_exists': function (path, mode, callback) {
+		filesystem.access(path, mode || filesystem.F_OK, function (err) {
 			if(callback) callback(null, !err);
 		});
 	},
