@@ -91,12 +91,7 @@ var configurationService = prime({
 	},
 
 	'_onStart': function() {
-		Object.defineProperty(this.$dependencies, 'database-service', {
-			'__proto__': null,
-			'configurable': true,
-			'enumerable': true,
-			'get': (this.$module.$services['database-service'].getInterface.bind(this.$module.$services['database-service']))
-		});
+		console.log(this.$module.name + '-start event fired');
 	},
 
 	'name': 'configuration-service',
