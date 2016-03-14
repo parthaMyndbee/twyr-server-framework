@@ -40,7 +40,7 @@ var twyrServiceBase = prime({
 		}
 
 		if (this.dependencies.indexOf('logger-service') < 0)
-			this.dependencies.push('logger-service');
+			this.dependencies.unshift('logger-service');
 	},
 
 	'getInterface': function () {

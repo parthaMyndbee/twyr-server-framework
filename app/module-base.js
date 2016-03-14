@@ -21,9 +21,12 @@ var filesystem = require('fs'),
 /**
  * Module dependencies, required for this module
  */
-var uuid = require('node-uuid');
+var uuid = require('node-uuid'),
+	EventEmitter = require('events');
 
 var twyrModuleBase = prime({
+	'mixin': EventEmitter,
+
 	'constructor': function(module) {
 		this['$module'] = module;
 		this['$uuid'] = uuid.v4().toString().replace(/-/g, '');
@@ -42,10 +45,7 @@ var twyrModuleBase = prime({
 		// console.log(this.name + ' Load');
 		var self = this;
 
-		this.loadConfigAsync()
-		.then(function() {
-			return self.$loader.loadAsync(__dirname);
-		})
+		this.$loader.loadAsync(__dirname)
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
@@ -78,8 +78,9 @@ var twyrModuleBase = prime({
 	'start': function(dependencies, callback) {
 		// console.log(this.name + ' Start');
 		var self = this;
+		self['$dependencies'] = dependencies;
 
-		this.$loader.startAsync(dependencies)
+		this.$loader.startAsync()
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
@@ -146,47 +147,6 @@ var twyrModuleBase = prime({
 			delete self['$module'];
 
 			return null;
-		});
-	},
-
-	'loadConfig': function(callback) {
-		var rootPath = path.dirname(require.main.filename),
-			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			self = this;
-
-		self._existsAsync(path.join(rootPath, 'config', env, self.name + '.js'), filesystem.R_OK)
-		.then(function (doesExist) {
-			var config = {};
-
-			if (doesExist) {
-				config = require(path.join(rootPath, 'config', env, self.name)).config;
-				self['$config'] = config;
-			}
-
-			if(callback) callback(null, config);
-			return null;
-		})
-		.catch(function (err) {
-			console.error(self.name + ' Load Configuration Error: ', err);
-			if(callback) callback(err);
-		});
-	},
-
-	'saveConfig': function (config, callback) {
-		var rootPath = path.dirname(require.main.filename),
-			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			configPath = path.join(rootPath, 'config', env, this.name + '.js'),
-			self = this;
-
-		var configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
-		filesystem.writeFile(configPath, configString, function (err) {
-			if (err) {
-				if(callback) callback(err);
-				return;
-			}
-
-			self['$config'] = config;
-			if(callback) callback(null, config);
 		});
 	},
 

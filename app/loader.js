@@ -84,16 +84,16 @@ var twyrLoader = prime({
 		});
 	},
 
-	'start': function(dependencies, callback) {
+	'start': function(callback) {
 		var self = this,
 			finalStatus = [];
 
-		self._startServicesAsync(dependencies)
+		self._startServicesAsync()
 		.then(function(status) {
 			if(!status) throw status;
 			finalStatus.push(status);
 
-			return self._startComponentsAsync(dependencies);
+			return self._startComponentsAsync();
 		})
 		.then(function(status) {
 			if(!status) throw status;
@@ -354,7 +354,7 @@ var twyrLoader = prime({
 		});
 	},
 
-	'_startServices': function(dependencies, callback) {
+	'_startServices': function(callback) {
 		// Step 1: Setup the dependencyGraph for this operation
 		var initOrder = new dependencyGraph(),
 			self = this;
@@ -431,7 +431,7 @@ var twyrLoader = prime({
 		});
 	},
 
-	'_startComponents': function(dependencies, callback) {
+	'_startComponents': function(callback) {
 		var promiseResolutions = [],
 			componentNames = [],
 			self = this;

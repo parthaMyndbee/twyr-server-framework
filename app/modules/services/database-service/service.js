@@ -29,21 +29,24 @@ var databaseService = prime({
 
 	'constructor': function(module) {
 		base.call(this, module);
+		this._loadConfig();
 	},
 
 	'start': function(dependencies, callback) {
 		var self = this;
+
 		databaseService.parent.start.call(self, dependencies, function(err, status) {
 			if(err) {
-				callback(err);
+				if(callback) callback(err);
 				return;
 			}
 
 			self['$database'] = bookshelf(knex(self.$config));
+
 			self.$database.knex.client.on('notice', self._databaseNotice.bind(self));
 			self.$database.knex.client.on('error', self._databaseError.bind(self));
 
-			callback(null, status);
+			if(callback) callback(null, status);
 		});
 	},
 
@@ -71,6 +74,13 @@ var databaseService = prime({
 				delete self['$database'];
 			});
 		});
+	},
+
+	'_loadConfig': function() {
+		var rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase();
+
+		this['$config'] = require(path.join(rootPath, 'config', env, this.name)).config;
 	},
 
 	'_databaseNotice': function(msg) {
