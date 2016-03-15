@@ -16,9 +16,10 @@ exports.config = ({
 		'colorize': true,
 		'timestamp': true,
 
-		'json': true,
+		'json': false,
 		'prettyPrint': true,
 
+		'handleExceptions': true,
 		'humanReadableUnhandledException': true
 	},
 
@@ -35,6 +36,9 @@ exports.config = ({
 		'maxFiles': 5,
 
 		'tailable': true,
-		'zippedArchive': true
+		'zippedArchive': true,
+
+		'handleExceptions': true,
+		'humanReadableUnhandledException': true
 	}
 });
