@@ -24,18 +24,18 @@ var twyrServiceBase = prime({
 	'constructor': function(module) {
 		base.call(this, module);
 
-		if (this.name == 'database-service') {
-			this.dependencies = [];
-			return;
-		}
-
 		if (this.name == 'configuration-service') {
-			this.dependencies = ['database-service'];
+			this.dependencies = [];
 			return;
 		}
 
 		if (this.name == 'logger-service') {
 			this.dependencies = ['configuration-service'];
+			return;
+		}
+
+		if (this.name == 'database-service') {
+			this.dependencies = ['configuration-service', 'logger-service'];
 			return;
 		}
 

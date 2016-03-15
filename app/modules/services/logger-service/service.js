@@ -33,7 +33,7 @@ var loggerService = prime({
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		(dependencies['configuration-service']).loadConfigAsync('logger-service')
+		(dependencies['configuration-service']).loadConfigAsync(self.name)
 		.then(function(loggerConfig) {
 			self['$config'] = loggerConfig;
 

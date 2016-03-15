@@ -60,7 +60,7 @@ var configurationService = prime({
 			return;
 		}
 
-		// TODO: Load from the database, as well...
+		// TODO: Load from the database, as well?
 		var self = this;
 
 		self._loadConfigFromFileAsync(module)
@@ -76,7 +76,7 @@ var configurationService = prime({
 	'saveConfig': function (module, config, callback) {
 		var self = this;
 
-		// TODO: Save to the database, as well...
+		// TODO: Save to the database, as well?
 		this._saveConfigToFileAsync(module, config)
 		.then(function(savedConfig) {
 			self['$currentConfig'][module] = savedConfig;
@@ -137,7 +137,7 @@ var configurationService = prime({
 	},
 
 	'name': 'configuration-service',
-	'dependencies': ['database-service'],
+	'dependencies': [],
 
 	'$logger': console
 });

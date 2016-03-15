@@ -29,17 +29,14 @@ var databaseService = prime({
 
 	'constructor': function(module) {
 		base.call(this, module);
-		this._loadConfig();
 	},
 
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		databaseService.parent.start.call(self, dependencies, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
+		(dependencies['configuration-service']).loadConfigAsync(self.name)
+		.then(function(loggerConfig) {
+			self['$config'] = loggerConfig;
 
 			var knexInstance = knex(self.$config);
 			self['$database'] = bookshelf(knexInstance);
@@ -47,8 +44,19 @@ var databaseService = prime({
 			knexInstance.on('query', self._databaseQuery.bind(self));
 			knexInstance.on('query-error', self._databaseQueryError.bind(self));
 
-			self.$module.on(self.$module.name + '-start', self._onStart.bind(self));
-			if(callback) callback(null, status);
+			databaseService.parent.start.call(self, dependencies, function(err, status) {
+				if(err) {
+					if(callback) callback(err);
+					return;
+				}
+
+				if(callback) callback(null, status);
+			});
+
+			return null;
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
 		});
 	},
 
@@ -78,34 +86,16 @@ var databaseService = prime({
 		});
 	},
 
-	'_loadConfig': function() {
-		var rootPath = path.dirname(require.main.filename),
-			env = (process.env.NODE_ENV || 'development').toLowerCase();
-
-		this['$config'] = require(path.join(rootPath, 'config', env, this.name)).config;
-	},
-
-	'_onStart': function() {
-		Object.defineProperty(this, '$logger', {
-			'__proto__': null,
-			'configurable': true,
-			'enumerable': true,
-			'get': (this.$module.$services['logger-service'].getInterface.bind(this.$module.$services['logger-service']))
-		});
-	},
-
 	'_databaseQuery': function(queryData) {
-		this.$logger.debug('Query: ', queryData);
+		this.$dependencies['logger-service'].debug('Query: ', queryData);
 	},
 
 	'_databaseQueryError': function(err, queryData) {
-		this.$logger.error('Query: ', queryData, ' Error: ', err);
+		this.$dependencies['logger-service'].error('Query: ', queryData, ' Error: ', err);
 	},
 
 	'name': 'database-service',
-	'dependencies': [],
-
-	'$logger': console
+	'dependencies': ['configuration-service', 'logger-service']
 });
 
 exports.service = databaseService;
