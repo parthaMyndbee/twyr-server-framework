@@ -417,11 +417,17 @@ var twyrLoader = prime({
 			}
 
 			serviceNames.push(thisService.name);
-			promiseResolutions.push(thisService.startAsync(thisServiceDependencies));
+			promiseResolutions.push(thisService.startAsync.bind(thisService, thisServiceDependencies));
 		}
 
+		// Start Services one after the other
+		promises.mapSeries(promiseResolutions, function(serviceStart) {
+			return serviceStart();
+		})
 		// Wait for the services to start...
-		this._processPromisesAsync(serviceNames, promiseResolutions)
+		.then(function(startStatuses) {
+			return self._processPromisesAsync(serviceNames, startStatuses);
+		})
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
 			return null;
@@ -518,11 +524,17 @@ var twyrLoader = prime({
 				thisService = this.$module.$services[thisServiceName];
 
 			serviceNames.push(thisService.name);
-			promiseResolutions.push(thisService.stopAsync());
+			promiseResolutions.push(thisService.stopAsync.bind(thisService));
 		}
 
+		// Stop Services one after the other
+		promises.mapSeries(promiseResolutions, function(serviceStop) {
+			return serviceStop();
+		})
 		// Wait for the services to stop...
-		this._processPromisesAsync(serviceNames, promiseResolutions)
+		.then(function(stopStatuses) {
+			return self._processPromisesAsync(serviceNames, stopStatuses);
+		})
 		.then(function(result) {
 			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
 			return null;

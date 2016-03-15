@@ -30,9 +30,14 @@ var configurationService = prime({
 		base.call(this, module);
 
 		Object.defineProperty(this, '$currentConfig', {
+			'__proto__': null,
 			'configurable': true,
-			'writable': true
+			'writable': true,
+			'value': {}
 		});
+
+		this._loadConfigFromFileAsync = promises.promisify(this._loadConfigFromFile.bind(this));
+		this._saveConfigToFileAsync = promises.promisify(this._saveConfigToFile.bind(this));
 	},
 
 	'start': function(dependencies, callback) {
@@ -50,6 +55,48 @@ var configurationService = prime({
 	},
 
 	'loadConfig': function(module, callback) {
+		if(this['$currentConfig'][module]) {
+			if(callback) callback(null, this['$currentConfig'][module]);
+			return;
+		}
+
+		// TODO: Load from the database, as well...
+		var self = this;
+
+		self._loadConfigFromFileAsync(module)
+		.then(function(loadedConfig) {
+			self['$currentConfig'][module] = loadedConfig;
+			if(callback) callback(null, loadedConfig);
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
+
+	'saveConfig': function (module, config, callback) {
+		var self = this;
+
+		// TODO: Save to the database, as well...
+		this._saveConfigToFileAsync(module, config)
+		.then(function(savedConfig) {
+			self['$currentConfig'][module] = savedConfig;
+			if(callback) callback(null, savedConfig);
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
+
+	'_onStart': function() {
+		Object.defineProperty(this, '$logger', {
+			'__proto__': null,
+			'configurable': true,
+			'enumerable': true,
+			'get': (this.$module.$services['logger-service'].getInterface.bind(this.$module.$services['logger-service']))
+		});
+	},
+
+	'_loadConfigFromFile': function(module, callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
 			self = this;
@@ -60,19 +107,18 @@ var configurationService = prime({
 
 			if (doesExist) {
 				config = require(path.join(rootPath, 'config', env, module)).config;
-				self['$currentConfig'][module] = config;
 			}
 
 			if(callback) callback(null, config);
 			return null;
 		})
 		.catch(function (err) {
-			console.error(module + ' Load Configuration Error: ', err);
+			self.$logger.error(module + ' Load Configuration From File Error: ', err);
 			if(callback) callback(err);
 		});
 	},
 
-	'saveConfig': function (module, config, callback) {
+	'_saveConfigToFile': function (module, config, callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
 			configPath = path.join(rootPath, 'config', env, module + '.js'),
@@ -81,22 +127,19 @@ var configurationService = prime({
 		var configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 		filesystem.writeFile(configPath, configString, function (err) {
 			if (err) {
+				self.$logger.error(module + ' Save Configuration to File Error: ', err);
 				if(callback) callback(err);
 				return;
 			}
 
-			self['$currentConfig'][module] = config;
 			if(callback) callback(null, config);
 		});
 	},
 
-	'_onStart': function() {
-		console.log(this.$module.name + '-start event fired');
-	},
-
 	'name': 'configuration-service',
-	'dependencies': ['database-service']
+	'dependencies': ['database-service'],
+
+	'$logger': console
 });
 
 exports.service = configurationService;
-

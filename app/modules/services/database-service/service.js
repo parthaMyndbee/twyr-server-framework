@@ -41,11 +41,13 @@ var databaseService = prime({
 				return;
 			}
 
-			self['$database'] = bookshelf(knex(self.$config));
+			var knexInstance = knex(self.$config);
+			self['$database'] = bookshelf(knexInstance);
 
-			self.$database.knex.client.on('notice', self._databaseNotice.bind(self));
-			self.$database.knex.client.on('error', self._databaseError.bind(self));
+			knexInstance.on('query', self._databaseQuery.bind(self));
+			knexInstance.on('query-error', self._databaseQueryError.bind(self));
 
+			self.$module.on(self.$module.name + '-start', self._onStart.bind(self));
 			if(callback) callback(null, status);
 		});
 	},
@@ -83,16 +85,27 @@ var databaseService = prime({
 		this['$config'] = require(path.join(rootPath, 'config', env, this.name)).config;
 	},
 
-	'_databaseNotice': function(msg) {
-		console.log('database-service Notice: ', msg);
+	'_onStart': function() {
+		Object.defineProperty(this, '$logger', {
+			'__proto__': null,
+			'configurable': true,
+			'enumerable': true,
+			'get': (this.$module.$services['logger-service'].getInterface.bind(this.$module.$services['logger-service']))
+		});
 	},
 
-	'_databaseError': function(err) {
-		console.error('database-service Error:\n', err);
+	'_databaseQuery': function(queryData) {
+		this.$logger.debug('Query: ', queryData);
+	},
+
+	'_databaseQueryError': function(err, queryData) {
+		this.$logger.error('Query: ', queryData, ' Error: ', err);
 	},
 
 	'name': 'database-service',
-	'dependencies': []
+	'dependencies': [],
+
+	'$logger': console
 });
 
 exports.service = databaseService;
