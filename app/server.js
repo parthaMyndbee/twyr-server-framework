@@ -39,7 +39,6 @@ var app = prime({
 				return;
 			}
 
-			self.emit(self.name + '-start');
 			callback(null, status);
 		});
 	},

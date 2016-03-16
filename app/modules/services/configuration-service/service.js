@@ -49,7 +49,7 @@ var configurationService = prime({
 				return;
 			}
 
-			self.$module.on(self.$module.name + '-start', self._onStart.bind(self));
+			self.$module.on(self.$module.name + '-start', self._onServerStart.bind(self));
 			if(callback) callback(null, status);
 		});
 	},
@@ -67,6 +67,8 @@ var configurationService = prime({
 		.then(function(loadedConfig) {
 			self['$currentConfig'][module] = loadedConfig;
 			if(callback) callback(null, loadedConfig);
+
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
@@ -81,19 +83,33 @@ var configurationService = prime({
 		.then(function(savedConfig) {
 			self['$currentConfig'][module] = savedConfig;
 			if(callback) callback(null, savedConfig);
+
+			return null;
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
 		});
 	},
 
-	'_onStart': function() {
-		Object.defineProperty(this, '$logger', {
+	'_onServerStart': function() {
+		var self = this;
+
+		Object.defineProperty(self, '$logger', {
 			'__proto__': null,
 			'configurable': true,
 			'enumerable': true,
-			'get': (this.$module.$services['logger-service'].getInterface.bind(this.$module.$services['logger-service']))
+			'get': (self.$module.$services['logger-service'].getInterface.bind(self.$module.$services['logger-service']))
 		});
+
+		Object.defineProperty(self, '$database', {
+			'__proto__': null,
+			'configurable': true,
+			'enumerable': true,
+			'get': (self.$module.$services['database-service'].getInterface.bind(self.$module.$services['database-service']))
+		});
+
+		console.log(self.name + ' acquired logger-service: ', this.$logger);
+		console.log(self.name + ' acquired database-service: ', this.$database);
 	},
 
 	'_loadConfigFromFile': function(module, callback) {

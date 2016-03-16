@@ -12,7 +12,7 @@
 
 exports.config = ({
 	'client': 'pg',
-	'debug': true,
+	'debug': false,
 
 	'connection': {
 		'host': '127.0.0.1',
@@ -25,5 +25,15 @@ exports.config = ({
 	'pool': {
 		'min': 2,
 		'max': 4
+	},
+
+	'migrations': {
+		'directory': 'knex_migrations/migrations',
+		'tableName': 'knex_migrations'
+	},
+
+	'seeds': {
+		'directory': 'knex_migrations/seeds',
+		'tableName': 'knex_seeds'
 	}
 });

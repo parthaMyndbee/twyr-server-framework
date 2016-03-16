@@ -83,8 +83,13 @@ var twyrModuleBase = prime({
 		this.$loader.startAsync()
 		.then(function(status) {
 			if(!status) throw status;
-			if(callback) callback(null, status);
 
+			if(self.$module)
+				self.$module.emit(self.name + '-start');
+			else
+				self.emit(self.name + '-start');
+
+			if(callback) callback(null, status);
 			return null;
 		})
 		.catch(function(err) {
