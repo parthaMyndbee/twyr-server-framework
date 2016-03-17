@@ -27,16 +27,19 @@ var uuid = require('node-uuid'),
 var twyrModuleBase = prime({
 	'mixin': EventEmitter,
 
-	'constructor': function(module) {
+	'constructor': function(module, loader) {
 		this['$module'] = module;
+		this['$loader'] = loader;
 		this['$uuid'] = uuid.v4().toString().replace(/-/g, '');
 
-		var TwyrLoader = require('./loader').loader;
-		this['$loader'] = promises.promisifyAll(new TwyrLoader(this), {
-			'filter': function(name, func) {
-				return true;
-			}
-		});
+		if(!loader) {
+			var TwyrLoader = require('./loader').loader;
+			this['$loader'] = promises.promisifyAll(new TwyrLoader(this), {
+				'filter': function(name, func) {
+					return true;
+				}
+			});
+		}
 
 		this._existsAsync = promises.promisify(this._exists);
 	},
@@ -45,7 +48,7 @@ var twyrModuleBase = prime({
 		// console.log(this.name + ' Load');
 		var self = this;
 
-		this.$loader.loadAsync(__dirname)
+		this.$loader.loadAsync(this.basePath)
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
@@ -78,16 +81,11 @@ var twyrModuleBase = prime({
 	'start': function(dependencies, callback) {
 		// console.log(this.name + ' Start');
 		var self = this;
-		self['$dependencies'] = dependencies;
+		self['dependencies'] = dependencies;
 
 		this.$loader.startAsync()
 		.then(function(status) {
 			if(!status) throw status;
-
-			if(self.$module)
-				self.$module.emit(self.name + '-start');
-			else
-				self.emit(self.name + '-start');
 
 			if(callback) callback(null, status);
 			return null;
@@ -101,6 +99,7 @@ var twyrModuleBase = prime({
 	'stop': function(callback) {
 		// console.log(this.name + ' Stop');
 		var self = this;
+		self['dependencies'] = null;
 
 		this.$loader.stopAsync()
 		.then(function(status) {
@@ -162,6 +161,7 @@ var twyrModuleBase = prime({
 	},
 
 	'name': 'twyr-module-base',
+	'basePath': __dirname,
 	'dependencies': []
 });
 

@@ -208,14 +208,14 @@ else {
 		shutdownFn();
 	});
 
-	serverDomain.on('error', function(error) {
+	serverDomain.on('error', function(err) {
 		console.error('Twyr Server #' + cluster.worker.id + '::Domain Error:\n', JSON.stringify(err, null, '\t'));
 		shutdownFn();
 	});
 
 	process.on('uncaughtException', function(err) {
 		console.error('Twyr Server #' + cluster.worker.id + '::Process Error: ', JSON.stringify(err, null, '\t'));
-		process.exit(1);
+		shutdownFn();
 	});
 
 	serverDomain.run(startupFn);

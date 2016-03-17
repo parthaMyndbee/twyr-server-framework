@@ -21,26 +21,16 @@ var base = require('./../../module-base').baseModule,
 var twyrServiceBase = prime({
 	'inherits': base,
 
-	'constructor': function(module) {
-		base.call(this, module);
+	'constructor': function(module, loader) {
+		var SrvcLoader = require('./service-loader').loader;
 
-		if (this.name == 'configuration-service') {
-			this.dependencies = [];
-			return;
-		}
+		loader = loader || (promises.promisifyAll(new SrvcLoader(this), {
+			'filter': function(name, func) {
+				return true;
+			}
+		}));
 
-		if (this.name == 'logger-service') {
-			this.dependencies = ['configuration-service'];
-			return;
-		}
-
-		if (this.name == 'database-service') {
-			this.dependencies = ['configuration-service', 'logger-service'];
-			return;
-		}
-
-		if (this.dependencies.indexOf('logger-service') < 0)
-			this.dependencies.unshift('logger-service');
+		base.call(this, module, loader);
 	},
 
 	'getInterface': function () {
@@ -48,6 +38,7 @@ var twyrServiceBase = prime({
 	},
 
 	'name': 'twyr-service-base',
+	'basePath': __dirname,
 	'dependencies': []
 });
 

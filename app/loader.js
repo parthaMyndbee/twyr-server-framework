@@ -19,7 +19,7 @@ var prime = require('prime'),
 /**
  * Module dependencies, required for this module
  */
-var dependencyGraph = require('dependency-graph').DepGraph,
+var DepGraph = require('dependency-graph').DepGraph,
 	filesystem = require('fs'),
 	path = require('path');
 
@@ -356,7 +356,7 @@ var twyrLoader = prime({
 
 	'_startServices': function(callback) {
 		// Step 1: Setup the dependencyGraph for this operation
-		var initOrder = new dependencyGraph(),
+		var initOrder = new DepGraph(),
 			self = this;
 
 		// Step 2: Add the services to the dependency graph
@@ -490,7 +490,7 @@ var twyrLoader = prime({
 
 	'_stopServices': function(callback) {
 		// Step 1: Setup the dependencyGraph for this operation
-		var initOrder = new dependencyGraph(),
+		var initOrder = new DepGraph(),
 			self = this;
 
 		// Step 2: Add the services to the dependency graph
@@ -503,15 +503,14 @@ var twyrLoader = prime({
 		for(var serviceIdx in this.$module.$services) {
 			var thisService = this.$module.$services[serviceIdx];
 
-			for(var depIdx in thisService.dependencies) {
-				var thisServiceDependency = thisService.dependencies[depIdx];
+			Object.keys(thisService.dependencies).forEach(function(depName) {
 				try {
-					initOrder.addDependency(thisService.name, thisServiceDependency);
+					initOrder.addDependency(thisService.name, depName);
 				}
 				catch(err) {
-					console.error('Add dependency Error: ', err.message);
+					console.error('Add dependency Error: ', err);
 				}
-			}
+			});
 		}
 
 		// Step 4: Stop the services in the correct order...

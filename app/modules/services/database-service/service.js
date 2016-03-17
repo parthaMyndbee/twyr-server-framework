@@ -34,42 +34,43 @@ var databaseService = prime({
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		databaseService.parent.start.call(self, dependencies, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
+		dependencies['configuration-service'].loadConfigAsync(self.name)
+		.then(function(databaseConfig) {
+			var rootPath = path.dirname(require.main.filename);
+			databaseConfig.migrations.directory = path.join(rootPath, databaseConfig.migrations.directory);
+			databaseConfig.seeds.directory = path.join(rootPath, databaseConfig.seeds.directory);
+			self['$config'] = databaseConfig;
 
-			self.$dependencies['configuration-service'].loadConfigAsync(self.name)
-			.then(function(databaseConfig) {
-				var rootPath = path.dirname(require.main.filename);
-				databaseConfig.migrations.directory = path.join(rootPath, databaseConfig.migrations.directory);
-				databaseConfig.seeds.directory = path.join(rootPath, databaseConfig.seeds.directory);
-				self['$config'] = databaseConfig;
+			var knexInstance = knex(self.$config);
+			knexInstance.on('query', self._databaseQuery.bind(self));
+			knexInstance.on('query-error', self._databaseQueryError.bind(self));
 
-				var knexInstance = knex(self.$config);
-				knexInstance.on('query', self._databaseQuery.bind(self));
-				knexInstance.on('query-error', self._databaseQueryError.bind(self));
+			self['$database'] = bookshelf(knexInstance);
 
-				self['$database'] = bookshelf(knexInstance);
-				return null;
-			})
-			.then(function() {
+			// Start sub-services, if any...
+			databaseService.parent.start.call(self, dependencies, function(err, status) {
+				if(err) {
+					if(callback) callback(err);
+					return;
+				}
+
 				if(callback) callback(null, status);
-				return null;
-			})
-			.catch(function(err) {
-				if(callback) callback(err);
-			})
-			.then(function() {
-				return self.$database.knex.migrate.latest();
-			})
-			.then(function() {
-				return self.$database.knex.seed.run();
-			})
-			.catch(function(err) {
-				self.$dependencies['logger-service'].error(self.name + '::start Error:\n', err);
 			});
+
+			return null;
+		})
+		.catch(function(err) {
+			dependencies['logger-service'].error(self.name + '::start Error:\n', err);
+			if(callback) callback(err);
+		})
+		.then(function() {
+			return self.$database.knex.migrate.latest();
+		})
+		.then(function() {
+			return self.$database.knex.seed.run();
+		})
+		.catch(function(err) {
+			dependencies['logger-service'].info(self.name + '::migration Error:\n', err);
 		});
 	},
 
@@ -79,9 +80,11 @@ var databaseService = prime({
 
 	'stop': function(callback) {
 		var self = this;
+
+		// Stop sub-services, if any...
 		databaseService.parent.stop.call(self, function(err, status) {
 			if(err) {
-				callback(err);
+				if(callback) callback(err);
 				return;
 			}
 
@@ -90,8 +93,8 @@ var databaseService = prime({
 				if(callback) callback(null, status);
 				return null;
 			})
-			.catch(function(err) {
-				if(callback) callback(err);
+			.catch(function(destroyErr) {
+				if(callback) callback(destroyErr);
 			})
 			.finally(function() {
 				delete self['$database'];
@@ -100,24 +103,24 @@ var databaseService = prime({
 	},
 
 	'_databaseQuery': function(queryData) {
-		this.$dependencies['logger-service'].debug(this.name + '::_databaseQuery: ', queryData);
+		this.dependencies['logger-service'].silly(this.name + '::_databaseQuery: ', queryData);
 	},
 
 	'_databaseQueryError': function(err, queryData) {
-		this.$dependencies['logger-service'].error(this.name + '::_databaseQueryError: ', { 'query': queryData, 'error': err });
+		this.dependencies['logger-service'].error(this.name + '::_databaseQueryError: ', { 'query': queryData, 'error': err });
 	},
 
 	'_databaseNotice': function() {
-		this.$dependencies['logger-service'].debug(this.name + '::_databaseNotice: ', arguments);
+		this.dependencies['logger-service'].info(this.name + '::_databaseNotice: ', arguments);
 	},
 
 	'_databaseError': function() {
-		this.$dependencies['logger-service'].error(this.name + '::_databaseError: ', arguments);
+		this.dependencies['logger-service'].error(this.name + '::_databaseError: ', arguments);
 	},
 
 	'name': 'database-service',
+	'basePath': __dirname,
 	'dependencies': ['configuration-service', 'logger-service']
 });
 
 exports.service = databaseService;
-

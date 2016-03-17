@@ -12,7 +12,7 @@
 
 exports.config = ({
 	'client': 'pg',
-	'debug': true,
+	'debug': false,
 
 	'connection': {
 		'host': '127.0.0.1',

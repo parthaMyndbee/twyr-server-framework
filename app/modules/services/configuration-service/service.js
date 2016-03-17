@@ -20,8 +20,9 @@ var base = require('./../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var filesystem = require('fs'),
-	path = require('path');
+var _ = require('lodash'),
+	path = require('path'),
+	filesystem = promises.promisifyAll(require('fs'));
 
 var configurationService = prime({
 	'inherits': base,
@@ -29,28 +30,17 @@ var configurationService = prime({
 	'constructor': function(module) {
 		base.call(this, module);
 
+		this.$config = ({
+			'services': {
+				'path': './services'
+			}
+		});
+
 		Object.defineProperty(this, '$currentConfig', {
 			'__proto__': null,
 			'configurable': true,
 			'writable': true,
 			'value': {}
-		});
-
-		this._loadConfigFromFileAsync = promises.promisify(this._loadConfigFromFile.bind(this));
-		this._saveConfigToFileAsync = promises.promisify(this._saveConfigToFile.bind(this));
-	},
-
-	'start': function(dependencies, callback) {
-		var self = this;
-
-		configurationService.parent.start.call(self, dependencies, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
-
-			self.$module.on(self.$module.name + '-start', self._onServerStart.bind(self));
-			if(callback) callback(null, status);
 		});
 	},
 
@@ -60,14 +50,19 @@ var configurationService = prime({
 			return;
 		}
 
-		// TODO: Load from the database, as well?
-		var self = this;
+		var self = this,
+			promiseResolutions = [];
 
-		self._loadConfigFromFileAsync(module)
-		.then(function(loadedConfig) {
-			self['$currentConfig'][module] = loadedConfig;
-			if(callback) callback(null, loadedConfig);
+		Object.keys(self.$services).forEach(function(subService) {
+			promiseResolutions.push(self.$services[subService].loadConfigAsync(module));
+		});
 
+		promises.all(promiseResolutions)
+		.then(function(loadedConfigs) {
+			self['$currentConfig'][module] = _.merge({}, loadedConfigs)[0];
+			if(callback) callback(null, self['$currentConfig'][module]);
+
+			console.log(module + ' merged configuration: ', self['$currentConfig'][module]);
 			return null;
 		})
 		.catch(function(err) {
@@ -76,13 +71,17 @@ var configurationService = prime({
 	},
 
 	'saveConfig': function (module, config, callback) {
-		var self = this;
+		var self = this,
+			promiseResolutions = [];
 
-		// TODO: Save to the database, as well?
-		this._saveConfigToFileAsync(module, config)
-		.then(function(savedConfig) {
-			self['$currentConfig'][module] = savedConfig;
-			if(callback) callback(null, savedConfig);
+		Object.keys(self.$services).forEach(function(subService) {
+			promiseResolutions.push(self.$services[subService].saveConfigAsync(module));
+		});
+
+		promises.all(promiseResolutions)
+		.then(function(savedConfigs) {
+			self['$currentConfig'][module] = _.merge({}, savedConfigs)[0];
+			if(callback) callback(null, self['$currentConfig'][module]);
 
 			return null;
 		})
@@ -91,71 +90,9 @@ var configurationService = prime({
 		});
 	},
 
-	'_onServerStart': function() {
-		var self = this;
-
-		Object.defineProperty(self, '$logger', {
-			'__proto__': null,
-			'configurable': true,
-			'enumerable': true,
-			'get': (self.$module.$services['logger-service'].getInterface.bind(self.$module.$services['logger-service']))
-		});
-
-		Object.defineProperty(self, '$database', {
-			'__proto__': null,
-			'configurable': true,
-			'enumerable': true,
-			'get': (self.$module.$services['database-service'].getInterface.bind(self.$module.$services['database-service']))
-		});
-
-		console.log(self.name + ' acquired logger-service: ', this.$logger);
-		console.log(self.name + ' acquired database-service: ', this.$database);
-	},
-
-	'_loadConfigFromFile': function(module, callback) {
-		var rootPath = path.dirname(require.main.filename),
-			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			self = this;
-
-		self._existsAsync(path.join(rootPath, 'config', env, module + '.js'), filesystem.R_OK)
-		.then(function (doesExist) {
-			var config = {};
-
-			if (doesExist) {
-				config = require(path.join(rootPath, 'config', env, module)).config;
-			}
-
-			if(callback) callback(null, config);
-			return null;
-		})
-		.catch(function (err) {
-			self.$logger.error(module + ' Load Configuration From File Error: ', err);
-			if(callback) callback(err);
-		});
-	},
-
-	'_saveConfigToFile': function (module, config, callback) {
-		var rootPath = path.dirname(require.main.filename),
-			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			configPath = path.join(rootPath, 'config', env, module + '.js'),
-			self = this;
-
-		var configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
-		filesystem.writeFile(configPath, configString, function (err) {
-			if (err) {
-				self.$logger.error(module + ' Save Configuration to File Error: ', err);
-				if(callback) callback(err);
-				return;
-			}
-
-			if(callback) callback(null, config);
-		});
-	},
-
 	'name': 'configuration-service',
-	'dependencies': [],
-
-	'$logger': console
+	'basePath': __dirname,
+	'dependencies': []
 });
 
 exports.service = configurationService;

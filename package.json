@@ -30,6 +30,7 @@
 		"bluebird": "*",
 		"dependency-graph" :"*",
 		"knex": "*",
+		"lodash": "*",
 		"node-print": "*",
 		"node-uuid": "*",
 		"pg": "*",
