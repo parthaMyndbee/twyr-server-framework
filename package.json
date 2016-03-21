@@ -28,7 +28,9 @@
 	"dependencies": {
 		"bookshelf": "*",
 		"bluebird": "*",
+		"deepmerge": "*",
 		"dependency-graph" :"*",
+		"fs-extra": "*",
 		"knex": "*",
 		"lodash": "*",
 		"node-print": "*",

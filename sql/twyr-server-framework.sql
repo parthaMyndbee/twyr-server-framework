@@ -62,7 +62,7 @@ CREATE UNIQUE INDEX uidx_parent_name ON public.modules
 -- object: public.fn_get_module_ancestors | type: FUNCTION --
 -- DROP FUNCTION IF EXISTS public.fn_get_module_ancestors(IN uuid) CASCADE;
 CREATE FUNCTION public.fn_get_module_ancestors (IN moduleid uuid)
-	RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text)
+	RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text,  type public.module_type)
 	LANGUAGE plpgsql
 	VOLATILE 
 	CALLED ON NULL INPUT
@@ -77,7 +77,8 @@ BEGIN
 			1 AS level,
 			A.id,
 			A.parent_id,
-			A.name
+			A.name,
+			A.type
 		FROM
 			modules A
 		WHERE
@@ -87,7 +88,8 @@ BEGIN
 			q.level + 1,
 			B.id,
 			B.parent_id,
-			B.name
+			B.name,
+			B.type
 		FROM
 			q,
 			modules B
@@ -98,7 +100,8 @@ BEGIN
 		q.level,
 		q.id,
 		q.parent_id,
-		q.name
+		q.name,
+		q.type
 	FROM
 		q
 	ORDER BY
@@ -114,7 +117,7 @@ ALTER FUNCTION public.fn_get_module_ancestors(IN uuid) OWNER TO postgres;
 -- object: public.fn_get_module_descendants | type: FUNCTION --
 -- DROP FUNCTION IF EXISTS public.fn_get_module_descendants(IN uuid) CASCADE;
 CREATE FUNCTION public.fn_get_module_descendants (IN moduleid uuid)
-	RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text)
+	RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text,  type public.module_type)
 	LANGUAGE plpgsql
 	VOLATILE 
 	CALLED ON NULL INPUT
@@ -129,7 +132,8 @@ BEGIN
 			1 AS level,
 			A.id,
 			A.parent_id,
-			A.name
+			A.name,
+			A.type
 		FROM
 			modules A
 		WHERE
@@ -139,7 +143,8 @@ BEGIN
 			q.level + 1,
 			B.id,
 			B.parent_id,
-			B.name
+			B.name,
+			B.type
 		FROM
 			q,
 			modules B
@@ -150,7 +155,8 @@ BEGIN
 		q.level,
 		q.id,
 		q.parent_id,
-		q.name
+		q.name,
+		q.type
 	FROM
 		q
 	ORDER BY

@@ -20,7 +20,7 @@ var base = require('./../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var _ = require('lodash'),
+var deepmerge = require('deepmerge'),
 	path = require('path'),
 	filesystem = promises.promisifyAll(require('fs'));
 
@@ -44,25 +44,80 @@ var configurationService = prime({
 		});
 	},
 
+	'load': function(callback) {
+		var self = this;
+
+		configurationService.parent.load.call(self, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
+			}
+
+			self.loadConfigAsync(self)
+			.then(function(config) {
+				self.$config = deepmerge(self.$config, config);
+
+				if(!self.$prioritizedSubServices) {
+					self.$prioritizedSubServices = [].concat(Object.keys(self.$services));
+					self.$prioritizedSubServices.sort(function(left, right) {
+						return ((self.$config.priorities[left] || 100) - (self.$config.priorities[right] || 100));
+					});
+				}
+
+				var configModified = false;
+				Object.keys(self.$services).forEach(function(subService) {
+					if(self.$config.priorities[subService]) return;
+
+					configModified = true;
+					self.$config.priorities[subService] = 100;
+				});
+
+				if(!configModified)
+					return null;
+
+				return self.saveConfigAsync(self, self.$config);
+			})
+			.then(function() {
+				if(callback) callback(null, status);
+				return null;
+			})
+			.catch(function(err) {
+				if(callback) callback(err);
+			});
+		});
+	},
+
 	'loadConfig': function(module, callback) {
-		if(this['$currentConfig'][module]) {
-			if(callback) callback(null, this['$currentConfig'][module]);
+		if(this['$currentConfig'][module.name]) {
+			if(callback) callback(null, this['$currentConfig'][module.name]);
 			return;
 		}
 
 		var self = this,
 			promiseResolutions = [];
 
-		Object.keys(self.$services).forEach(function(subService) {
-			promiseResolutions.push(self.$services[subService].loadConfigAsync(module));
-		});
+		if(self.$prioritizedSubServices) {
+			self.$prioritizedSubServices.forEach(function(subService) {
+				promiseResolutions.push(self.$services[subService].loadConfigAsync(module));
+			});
+		}
+		else {
+			Object.keys(self.$services).forEach(function(subService) {
+				promiseResolutions.push(self.$services[subService].loadConfigAsync(module));
+			});
+		}
 
 		promises.all(promiseResolutions)
 		.then(function(loadedConfigs) {
-			self['$currentConfig'][module] = _.merge({}, loadedConfigs)[0];
-			if(callback) callback(null, self['$currentConfig'][module]);
+			self['$currentConfig'][module.name] = {};
+			loadedConfigs.forEach(function(loadedConfig) {
+				self['$currentConfig'][module.name] = deepmerge(self['$currentConfig'][module.name], loadedConfig);
+			});
 
-			console.log(module + ' merged configuration: ', self['$currentConfig'][module]);
+			return self.saveConfigAsync(module, self['$currentConfig'][module.name]);
+		})
+		.then(function() {
+			if(callback) callback(null, self['$currentConfig'][module.name]);
 			return null;
 		})
 		.catch(function(err) {
@@ -75,13 +130,13 @@ var configurationService = prime({
 			promiseResolutions = [];
 
 		Object.keys(self.$services).forEach(function(subService) {
-			promiseResolutions.push(self.$services[subService].saveConfigAsync(module));
+			promiseResolutions.push(self.$services[subService].saveConfigAsync(module, config));
 		});
 
 		promises.all(promiseResolutions)
 		.then(function(savedConfigs) {
-			self['$currentConfig'][module] = _.merge({}, savedConfigs)[0];
-			if(callback) callback(null, self['$currentConfig'][module]);
+			self['$currentConfig'][module.name] = config;
+			if(callback) callback(null, self['$currentConfig'][module.name]);
 
 			return null;
 		})

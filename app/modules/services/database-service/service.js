@@ -34,7 +34,7 @@ var databaseService = prime({
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		dependencies['configuration-service'].loadConfigAsync(self.name)
+		dependencies['configuration-service'].loadConfigAsync(self)
 		.then(function(databaseConfig) {
 			var rootPath = path.dirname(require.main.filename);
 			databaseConfig.migrations.directory = path.join(rootPath, databaseConfig.migrations.directory);

@@ -33,7 +33,7 @@ var loggerService = prime({
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		(dependencies['configuration-service']).loadConfigAsync(self.name)
+		dependencies['configuration-service'].loadConfigAsync(this)
 		.then(function(loggerConfig) {
 			self['$config'] = loggerConfig;
 			self['$winston'] = require('winston');
@@ -79,7 +79,7 @@ var loggerService = prime({
 			self.$winston.emitErrs = false;
 
 			// The first log of the day...
-			self.$winston.debug('Winston Logger successfully setup, and running...');
+			self.$winston.info('Winston Logger successfully setup, and running...');
 
 			// Start the sub-services, if any...
 			loggerService.parent.start.call(self, dependencies, function(err, status) {
@@ -113,7 +113,7 @@ var loggerService = prime({
 			}
 
 			// The last log of the day...
-			self.$winston.debug('Goodbye, blue sky...');
+			self.$winston.info('\n\nThe time is gone, the server is over, thought I\'d something more to play....\nGoodbye, blue sky, goodbye...\n');
 
 			// Remove the transports so that it stops logging
 			for(var transportIdx in self.$config) {

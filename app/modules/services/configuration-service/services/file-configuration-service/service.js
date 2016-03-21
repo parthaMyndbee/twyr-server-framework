@@ -21,7 +21,7 @@ var base = require('./../../../service-base').baseService,
  * Module dependencies, required for this module
  */
 var path = require('path'),
-	filesystem = promises.promisifyAll(require('fs'));
+	filesystem = promises.promisifyAll(require('fs-extra'));
 
 var fileConfigurationService = prime({
 	'inherits': base,
@@ -33,14 +33,18 @@ var fileConfigurationService = prime({
 	'loadConfig': function(module, callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			configPath = path.join(rootPath, 'config', env, path.relative(path.dirname(require.main.filename), module.basePath).replace('app/modules', '') + '.js'),
 			self = this;
 
-		self._existsAsync(path.join(rootPath, 'config', env, module + '.js'), filesystem.R_OK)
+		filesystem.ensureDirAsync(path.dirname(configPath))
+		.then(function() {
+			return self._existsAsync(configPath, filesystem.R_OK);
+		})
 		.then(function (doesExist) {
 			var config = {};
 
 			if (doesExist) {
-				config = require(path.join(rootPath, 'config', env, module)).config;
+				config = require(configPath).config;
 			}
 
 			if(callback) callback(null, config);
@@ -55,12 +59,16 @@ var fileConfigurationService = prime({
 	'saveConfig': function (module, config, callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			configPath = path.join(rootPath, 'config', env, module + '.js');
+			configPath = path.join(rootPath, 'config', env, path.relative(path.dirname(require.main.filename), module.basePath).replace('app/modules', '') + '.js'),
+			configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 
-		var configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
-		filesystem.writeFileAsync(configPath, configString)
+		filesystem.ensureDirAsync(path.dirname(configPath))
+		.then(function() {
+			return filesystem.writeFileAsync(configPath, configString);
+		})
 		.then(function () {
 			if(callback) callback(null, config);
+			return null;
 		})
 		.catch(function(err) {
 			console.error(module + ' Save Configuration to File Error: ', err);

@@ -89,6 +89,9 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<parameter name="name">
 		<type name="text"/>
 	</parameter>
+	<parameter name="type">
+		<type name="public.module_type"/>
+	</parameter>
 	</return-type>
 	<parameter name="moduleid" in="true">
 		<type name="uuid"/>
@@ -101,7 +104,8 @@ BEGIN
 			1 AS level,
 			A.id,
 			A.parent_id,
-			A.name
+			A.name,
+			A.type
 		FROM
 			modules A
 		WHERE
@@ -111,7 +115,8 @@ BEGIN
 			q.level + 1,
 			B.id,
 			B.parent_id,
-			B.name
+			B.name,
+			B.type
 		FROM
 			q,
 			modules B
@@ -122,7 +127,8 @@ BEGIN
 		q.level,
 		q.id,
 		q.parent_id,
-		q.name
+		q.name,
+		q.type
 	FROM
 		q
 	ORDER BY
@@ -156,6 +162,9 @@ END;
 	<parameter name="name">
 		<type name="text"/>
 	</parameter>
+	<parameter name="type">
+		<type name="public.module_type"/>
+	</parameter>
 	</return-type>
 	<parameter name="moduleid" in="true">
 		<type name="uuid"/>
@@ -168,7 +177,8 @@ BEGIN
 			1 AS level,
 			A.id,
 			A.parent_id,
-			A.name
+			A.name,
+			A.type
 		FROM
 			modules A
 		WHERE
@@ -178,7 +188,8 @@ BEGIN
 			q.level + 1,
 			B.id,
 			B.parent_id,
-			B.name
+			B.name,
+			B.type
 		FROM
 			q,
 			modules B
@@ -189,7 +200,8 @@ BEGIN
 		q.level,
 		q.id,
 		q.parent_id,
-		q.name
+		q.name,
+		q.type
 	FROM
 		q
 	ORDER BY
