@@ -37,6 +37,8 @@
 		"node-uuid": "*",
 		"pg": "*",
 		"prime":"*",
+		"hiredis": "*",
+		"redis": "*",
 		"winston": "*"
 	},
 	"devDependencies": {
