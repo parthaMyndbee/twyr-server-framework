@@ -44,11 +44,24 @@ var twyrModuleBase = prime({
 		this._existsAsync = promises.promisify(this._exists);
 	},
 
-	'load': function(callback) {
+	'load': function(configSrvc, callback) {
 		// console.log(this.name + ' Load');
-		var self = this;
 
-		this.$loader.loadAsync(this.basePath)
+		var self = this,
+			promiseResolutions = [];
+
+		if(configSrvc) {
+			promiseResolutions.push(configSrvc.loadConfigAsync(self));
+		}
+		else {
+			promiseResolutions.push(null);
+		}
+
+		promises.all(promiseResolutions)
+		.then(function(moduleConfig) {
+			self['$config'] = configSrvc ? moduleConfig[0] : self['$config'];
+			return self.$loader.loadAsync(configSrvc, self.basePath);
+		})
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
@@ -99,13 +112,13 @@ var twyrModuleBase = prime({
 	'stop': function(callback) {
 		// console.log(this.name + ' Stop');
 		var self = this;
-		self['dependencies'] = null;
 
 		this.$loader.stopAsync()
 		.then(function(status) {
 			if(!status) throw status;
 			if(callback) callback(null, status);
 
+			self['dependencies'] = null;
 			return null;
 		})
 		.catch(function(err) {

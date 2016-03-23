@@ -30,19 +30,6 @@ var app = prime({
 		this._loadConfig();
 	},
 
-	'start': function(dependencies, callback) {
-		var self = this;
-
-		app.parent.start.call(self, dependencies, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
-
-			callback(null, status);
-		});
-	},
-
 	'_loadConfig': function() {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase();
@@ -51,6 +38,7 @@ var app = prime({
 	},
 
 	'name': 'twyr-server',
+	'basePath': __dirname,
 	'dependencies': []
 });
 

@@ -104,6 +104,23 @@ var pubsubService = prime({
 		});
 	},
 
+	'unsubscribe': function(subscriptionId, callback) {
+		var promiseResolutions = [],
+			self = this;
+
+		Object.keys(self.$services).forEach(function(subService) {
+			promiseResolutions.push(self.$services[subService].unsubscribeAsync(subscriptionId));
+		});
+
+		promises.all(promiseResolutions)
+		.then(function() {
+			if(callback) callback(null, true);
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
+
 	'_validateChannel': function(channel) {
 		var self = this,
 			validatedChannel = {

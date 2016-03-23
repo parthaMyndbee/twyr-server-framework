@@ -40,7 +40,7 @@ var twyrLoader = prime({
 		});
 	},
 
-	'load': function(basePath, callback) {
+	'load': function(configSrvc, basePath, callback) {
 		var promiseResolutions = [],
 			self = this;
 
@@ -49,9 +49,9 @@ var twyrLoader = prime({
 			'value': path.resolve(basePath)
 		});
 
-		promiseResolutions.push(self._loadUtilitiesAsync());
-		promiseResolutions.push(self._loadServicesAsync());
-		promiseResolutions.push(self._loadComponentsAsync());
+		promiseResolutions.push(self._loadUtilitiesAsync(configSrvc));
+		promiseResolutions.push(self._loadServicesAsync(configSrvc));
+		promiseResolutions.push(self._loadComponentsAsync(configSrvc));
 
 		promises.all(promiseResolutions)
 		.then(function(status) {
@@ -169,7 +169,7 @@ var twyrLoader = prime({
 		});
 	},
 
-	'_loadUtilities': function(callback) {
+	'_loadUtilities': function(configSrvc, callback) {
 		try {
 			if(!(this.$module.$config && this.$module.$config.utilities && this.$module.$config.utilities.path)) {
 				if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': null });
@@ -198,11 +198,11 @@ var twyrLoader = prime({
 			if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': didLoadUtilities });
 		}
 		catch(err) {
-			if(callback) callback(err, { 'self': this.$module.name, 'type': 'utilities', 'status': err.message });
+			if(callback) callback(err, { 'self': this.$module.name, 'type': 'utilities', 'status': err });
 		}
 	},
 
-	'_loadServices': function(callback) {
+	'_loadServices': function(configSrvc, callback) {
 		var promiseResolutions = [],
 			serviceNames = [],
 			self = this;
@@ -217,45 +217,81 @@ var twyrLoader = prime({
 				this.$module['$services'] = {};
 			}
 
-			var definedServices = this._findFiles(path.join(this.$basePath, this.$module.$config.services.path), 'service.js');
-			for(var idx in definedServices) {
-				// Check validity of the definition...
-				var Service = require(definedServices[idx]).service;
-				if(!Service) continue;
+			var definedServices = this._findFiles(path.join(this.$basePath, this.$module.$config.services.path), 'service.js'),
+				configPromiseResolution = [];
 
-				if(!Service.prototype.name || !Service.prototype.dependencies)
-					continue;
+			if(!configSrvc) {
+				for(var idx in definedServices) {
+					// Check validity of the definition...
+					var Service = require(definedServices[idx]).service;
+					if(!Service) continue;
 
-				if(!Service.prototype.load || !Service.prototype.initialize || !Service.prototype.start || !Service.prototype.stop || !Service.prototype.uninitialize || !Service.prototype.unload)
-					continue;
+					if(!Service.prototype.load || !Service.prototype.initialize || !Service.prototype.start || !Service.prototype.stop || !Service.prototype.uninitialize || !Service.prototype.unload)
+						continue;
 
-				// Ok... valid definition. Construct the service
-				var serviceInstance = new Service(this.$module);
+					if(!Service.prototype.name || !Service.prototype.dependencies)
+						continue;
 
-				// Store the promisified object...
-				this.$module.$services[serviceInstance.name] = promises.promisifyAll(serviceInstance);
+					if(Service.prototype.name != 'configuration-service')
+						continue;
 
-				// Ask the service to load itself...
-				serviceNames.push(serviceInstance.name);
-				promiseResolutions.push(serviceInstance.loadAsync());
+					// Ok... valid definition. Construct the service
+					configSrvc = new Service(this.$module);
+
+					// Store the promisified object...
+					this.$module.$services[configSrvc.name] = promises.promisifyAll(configSrvc);
+				}
+
+				if(configSrvc)
+					configPromiseResolution.push(configSrvc.loadAsync(null));
+				else
+					configPromiseResolution.push(true);
 			}
+
+			promises.all(configPromiseResolution)
+			.then(function() {
+				for(var idx in definedServices) {
+					// Check validity of the definition...
+					var Service = require(definedServices[idx]).service;
+					if(!Service) continue;
+
+					if(!Service.prototype.load || !Service.prototype.initialize || !Service.prototype.start || !Service.prototype.stop || !Service.prototype.uninitialize || !Service.prototype.unload)
+						continue;
+
+					if(!Service.prototype.name || !Service.prototype.dependencies)
+						continue;
+
+					if(Service.prototype.name == 'configuration-service')
+						continue;
+
+					// Ok... valid definition. Construct the service
+					var serviceInstance = new Service(self.$module);
+
+					// Store the promisified object...
+					self.$module.$services[serviceInstance.name] = promises.promisifyAll(serviceInstance);
+
+					// Ask the service to load itself...
+					serviceNames.push(serviceInstance.name);
+					promiseResolutions.push(serviceInstance.loadAsync(configSrvc));
+				}
+
+				return self._processPromisesAsync(serviceNames, promiseResolutions);
+			})
+			// Wait for the services to load...
+			.then(function(result) {
+				if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
+				return null;
+			})
+			.catch(function(err) {
+				if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err });
+			});
 		}
 		catch(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err });
 		}
-
-		// Wait for the services to load...
-		this._processPromisesAsync(serviceNames, promiseResolutions)
-		.then(function(result) {
-			if(callback) callback(null, { 'self': self.$module.name, 'type': 'services', 'status': result });
-			return null;
-		})
-		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
-		});
 	},
 
-	'_loadComponents': function(callback) {
+	'_loadComponents': function(configSrvc, callback) {
 		var promiseResolutions = [],
 			componentNames = [],
 			self = this;
@@ -290,11 +326,11 @@ var twyrLoader = prime({
 
 				// Ask the component to load itself...
 				componentNames.push(componentInstance.name);
-				promiseResolutions.push(componentInstance.loadAsync());
+				promiseResolutions.push(componentInstance.loadAsync(configSrvc));
 			}
 		}
 		catch(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err });
 		}
 
 		// Wait for the components to load...
@@ -304,7 +340,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err });
 		});
 	},
 
@@ -327,7 +363,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err });
 		});
 	},
 
@@ -350,35 +386,47 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err });
 		});
 	},
 
 	'_startServices': function(callback) {
 		// Step 1: Setup the dependencyGraph for this operation
 		var initOrder = new DepGraph(),
+			parentDeps = [],
 			self = this;
 
-		// Step 2: Add the services to the dependency graph
-		for(var serviceIdx in this.$module.$services) {
-			var thisService = this.$module.$services[serviceIdx];
-			initOrder.addNode(thisService.name);
+		// Step 2: Note parents dependencies, and DON'T add them to this modules' service start order
+		if(this.$module.dependencies) {
+			if(Array.isArray(this.$module.dependencies)) {
+				parentDeps = parentDeps.concat(this.$module.dependencies);
+			}
+			else {
+				Object.keys(this.$module.dependencies).forEach(function (serviceName) {
+					parentDeps.push(serviceName);
+				});
+			}
 		}
 
-		// Step 3: Add the dependencies for each service
-		for(var serviceIdx in this.$module.$services) {
-			var thisService = this.$module.$services[serviceIdx];
+		// Step 3: Add the services to the dependency graph
+		if(this.$module.$services) {
+			Object.keys(this.$module.$services).forEach(function (serviceName) {
+				initOrder.addNode(serviceName);
+			});
 
-			for(var depIdx in thisService.dependencies) {
-				var thisServiceDependency = thisService.dependencies[depIdx];
+			Object.keys(this.$module.$services).forEach(function (serviceName) {
+				var thisService = self.$module.$services[serviceName];
 
-				try {
-					initOrder.addDependency(thisService.name, thisServiceDependency);
-				}
-				catch(err) {
-					console.error('Add dependency Error: ', err.message);
-				}
-			}
+				thisService.dependencies.forEach(function(thisServiceDependency) {
+					try {
+						if(parentDeps.indexOf(thisServiceDependency) >= 0) return;
+						initOrder.addDependency(thisService.name, thisServiceDependency);
+					}
+					catch(err) {
+						console.error(thisService.name + ' add ' + thisServiceDependency + ' as dependency Error: ', err);
+					}
+				});
+			});
 		}
 
 		// Step 4: Start the services in the correct order...
@@ -433,7 +481,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err });
 		});
 	},
 
@@ -484,47 +532,60 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err });
 		});
 	},
 
 	'_stopServices': function(callback) {
 		// Step 1: Setup the dependencyGraph for this operation
-		var initOrder = new DepGraph(),
+		var uninitOrder = new DepGraph(),
+			parentDeps = [],
 			self = this;
 
-		// Step 2: Add the services to the dependency graph
-		for(var serviceIdx in this.$module.$services) {
-			var thisService = this.$module.$services[serviceIdx];
-			initOrder.addNode(thisService.name);
+		// Step 2: Note dependencies, and DON'T add them to this modules' service start order
+		if(this.$module.dependencies) {
+			if(Array.isArray(this.$module.dependencies)) {
+				parentDeps = parentDeps.concat(this.$module.dependencies);
+			}
+			else {
+				Object.keys(this.$module.dependencies).forEach(function (serviceName) {
+					parentDeps.push(serviceName);
+				});
+			}
 		}
 
-		// Step 3: Add the dependencies for each service
-		for(var serviceIdx in this.$module.$services) {
-			var thisService = this.$module.$services[serviceIdx];
+		// Step 3: Add the services to the dependency graph
+		if(this.$module.$services) {
+			Object.keys(this.$module.$services).forEach(function (serviceName) {
+				uninitOrder.addNode(serviceName);
+			});
 
-			Object.keys(thisService.dependencies).forEach(function(depName) {
-				try {
-					initOrder.addDependency(thisService.name, depName);
-				}
-				catch(err) {
-					console.error('Add dependency Error: ', err);
-				}
+			Object.keys(this.$module.$services).forEach(function (serviceName) {
+				var thisService = self.$module.$services[serviceName];
+
+				Object.keys(thisService.dependencies).forEach(function(thisServiceDependency) {
+					try {
+						if(parentDeps.indexOf(thisServiceDependency) >= 0) return;
+						uninitOrder.addDependency(thisService.name, thisServiceDependency);
+					}
+					catch(err) {
+						console.error(thisService.name + ' add ' + thisServiceDependency + ' as dependency Error: ', err);
+					}
+				});
 			});
 		}
 
 		// Step 4: Stop the services in the correct order...
-		var initOrderList = initOrder.overallOrder().reverse(),
+		var uninitOrderList = uninitOrder.overallOrder().reverse(),
 			promiseResolutions = [],
 			serviceNames = [];
 
-		for(var initOrderIdx in initOrderList) {
-			var thisServiceName = initOrderList[initOrderIdx],
-				thisService = this.$module.$services[thisServiceName];
+		uninitOrderList.forEach(function (thisServiceName) {
+			var thisService = self.$module.$services[thisServiceName];
 
 			serviceNames.push(thisService.name);
 			promiseResolutions.push(thisService.stopAsync.bind(thisService));
-		}
+		});
 
 		// Stop Services one after the other
 		promises.mapSeries(promiseResolutions, function(serviceStop) {
@@ -539,7 +600,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err });
 		});
 	},
 
@@ -563,7 +624,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err });
 		});
 	},
 
@@ -586,7 +647,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err });
 		});
 	},
 
@@ -609,7 +670,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err });
 		});
 	},
 
@@ -648,7 +709,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'services', 'status': err });
 		})
 		.finally(function() {
 			delete self.$module['$services'];
@@ -680,7 +741,7 @@ var twyrLoader = prime({
 			return null;
 		})
 		.catch(function(err) {
-			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err.message });
+			if(callback) callback(err, { 'self': self.$module.name, 'type': 'components', 'status': err });
 		})
 		.finally(function() {
 			delete self.$module['$components'];

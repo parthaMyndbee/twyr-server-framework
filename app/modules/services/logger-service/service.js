@@ -20,8 +20,7 @@ var base = require('./../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var path = require('path'),
-	uuid = require('node-uuid');
+var path = require('path');
 
 var loggerService = prime({
 	'inherits': base,
@@ -33,68 +32,59 @@ var loggerService = prime({
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		dependencies['configuration-service'].loadConfigAsync(this)
-		.then(function(loggerConfig) {
-			self['$config'] = loggerConfig;
-			self['$winston'] = require('winston');
+		self['$winston'] = require('winston');
 
-			// Determine the root folder of the application
-			var rootPath = path.dirname(require.main.filename);
+		// Determine the root folder of the application
+		var rootPath = path.dirname(require.main.filename);
 
-			// Add transports as we go along...
-			for(var transportIdx in self.$config) {
-				var thisTransport = self.$config[transportIdx];
+		// Add transports as we go along...
+		for(var transportIdx in self.$config) {
+			var thisTransport = self.$config[transportIdx];
 
-				if(thisTransport.filename) {
-					var dirName = path.join(rootPath, path.dirname(thisTransport.filename)),
-						baseName = path.basename(thisTransport.filename, path.extname(thisTransport.filename));
+			if(thisTransport.filename) {
+				var dirName = path.join(rootPath, path.dirname(thisTransport.filename)),
+					baseName = path.basename(thisTransport.filename, path.extname(thisTransport.filename));
 
-					thisTransport.filename = path.resolve(path.join(dirName, baseName + '-' + self.$module.$uuid + path.extname(thisTransport.filename)));
-				}
-
-				try {
-					if(self.$winston.transports[transportIdx])
-						self.$winston.remove(self.$winston.transports[transportIdx]);
-				}
-				catch(err) {
-					// console.error('Error Removing ' + transportIdx + ' Transport from Winston: ', err.message);
-				}
-
-				try {
-					if(self.$winston.transports[transportIdx]) {
-						// console.log('Adding ' + transportIdx + ' Transport to the Winston instance');
-						self.$winston.add(self.$winston.transports[transportIdx], thisTransport);
-					}
-					else {
-						// TODO: Load the required Winston driver before adding it
-					}
-				}
-				catch(err) {
-					console.error('Error Adding ' + transportIdx + ' Transport to Winston: ', err.message);
-				}
+				thisTransport.filename = path.resolve(path.join(dirName, baseName + '-' + self.$module.$uuid + path.extname(thisTransport.filename)));
 			}
 
-			// Ensure the logger isn't crashing the Server :-)
-			self.$winston.exitOnError = false;
-			self.$winston.emitErrs = false;
+			try {
+				if(self.$winston.transports[transportIdx])
+					self.$winston.remove(self.$winston.transports[transportIdx]);
+			}
+			catch(err) {
+				// console.error('Error Removing ' + transportIdx + ' Transport from Winston: ', err.message);
+			}
 
-			// The first log of the day...
-			self.$winston.info('Winston Logger successfully setup, and running...');
-
-			// Start the sub-services, if any...
-			loggerService.parent.start.call(self, dependencies, function(err, status) {
-				if(err) {
-					if(callback) callback(err);
-					return;
+			try {
+				if(self.$winston.transports[transportIdx]) {
+					// console.log('Adding ' + transportIdx + ' Transport to the Winston instance');
+					self.$winston.add(self.$winston.transports[transportIdx], thisTransport);
 				}
+				else {
+					// TODO: Load the required Winston driver before adding it
+				}
+			}
+			catch(err) {
+				console.error('Error Adding ' + transportIdx + ' Transport to Winston: ', err.message);
+			}
+		}
 
-				if(callback) callback(null, status);
-			});
+		// Ensure the logger isn't crashing the Server :-)
+		self.$winston.exitOnError = false;
+		self.$winston.emitErrs = false;
 
-			return null;
-		})
-		.catch(function(err) {
-			if(callback) callback(err);
+		// The first log of the day...
+		self.$winston.info('Winston Logger successfully setup, and running...');
+
+		// Start the sub-services, if any...
+		loggerService.parent.start.call(self, dependencies, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
+			}
+
+			if(callback) callback(null, status);
 		});
 	},
 

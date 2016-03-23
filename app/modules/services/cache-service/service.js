@@ -32,41 +32,35 @@ var cacheService = prime({
 
 	'start': function(dependencies, callback) {
 		var self = this;
+		self.$config.options['retry_strategy'] = (function (options) {
+			if (options.error.code === 'ECONNREFUSED') {
+				// End reconnecting on a specific error and flush all commands with a individual error
+				return new Error('The server refused the connection');
+			}
 
-		dependencies['configuration-service'].loadConfigAsync(this)
-		.then(function(cacheConfig) {
-			self['$config'] = cacheConfig;
+			if (options.total_retry_time > 1000 * 60 * 60) {
+				// End reconnecting after a specific timeout and flush all commands with a individual error
+				return new Error('Retry time exhausted');
+			}
 
-			cacheService.parent.start.call(self, dependencies, function(err, status) {
-				if(err) {
-					if(callback) callback(err);
-					return;
-				}
+			if (options.times_connected > 10) {
+				// End reconnecting with built in error
+				return undefined;
+			}
 
-				self.$config.options['retry_strategy'] = (function (options) {
-					if (options.error.code === 'ECONNREFUSED') {
-						// End reconnecting on a specific error and flush all commands with a individual error
-						return new Error('The server refused the connection');
-					}
+			// reconnect after
+			return Math.max(options.attempt * 100, 3000);
+		});
 
-					if (options.total_retry_time > 1000 * 60 * 60) {
-						// End reconnecting after a specific timeout and flush all commands with a individual error
-						return new Error('Retry time exhausted');
-					}
+		cacheService.parent.start.call(self, dependencies, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
+			}
 
-					if (options.times_connected > 10) {
-						// End reconnecting with built in error
-						return undefined;
-					}
-
-					// reconnect after
-					return Math.max(options.attempt * 100, 3000);
-				});
-
-				self['$cache'] = promises.promisifyAll(redis.createClient(self.$config.port, self.$config.host, self.$config.options));
-				self.$cache.on('connect', self._setCache.bind(self, callback, status));
-				self.$cache.on('error', self._cacheError.bind(self, callback, status));
-			});
+			self['$cache'] = promises.promisifyAll(redis.createClient(self.$config.port, self.$config.host, self.$config.options));
+			self.$cache.on('connect', self._setCache.bind(self, callback, status));
+			self.$cache.on('error', self._cacheError.bind(self, callback, status));
 		});
 	},
 

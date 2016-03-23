@@ -29,7 +29,7 @@ var serviceLoader = prime({
 		baseLoader.call(this, module);
 	},
 
-	'load': function(basePath, callback) {
+	'load': function(configSrvc, basePath, callback) {
 		var promiseResolutions = [],
 			self = this;
 
@@ -38,8 +38,8 @@ var serviceLoader = prime({
 			'value': path.resolve(basePath)
 		});
 
-		promiseResolutions.push(self._loadUtilitiesAsync());
-		promiseResolutions.push(self._loadServicesAsync());
+		promiseResolutions.push(self._loadUtilitiesAsync(configSrvc));
+		promiseResolutions.push(self._loadServicesAsync(configSrvc));
 
 		promises.all(promiseResolutions)
 		.then(function(status) {

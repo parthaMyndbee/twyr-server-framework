@@ -33,6 +33,7 @@
 		"fs-extra": "*",
 		"knex": "*",
 		"lodash": "*",
+		"mqtt": "*",
 		"node-print": "*",
 		"node-uuid": "*",
 		"pg": "*",

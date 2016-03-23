@@ -44,10 +44,10 @@ var configurationService = prime({
 		});
 	},
 
-	'load': function(callback) {
+	'load': function(configSrvc, callback) {
 		var self = this;
 
-		configurationService.parent.load.call(self, function(err, status) {
+		configurationService.parent.load.call(self, configSrvc, function(err, status) {
 			if(err) {
 				if(callback) callback(err);
 				return;
@@ -77,14 +77,68 @@ var configurationService = prime({
 
 				return self.saveConfigAsync(self, self.$config);
 			})
+			.catch(function(loadErr) {
+				self['$loadError'] = loadErr;
+			})
 			.then(function() {
-				if(callback) callback(null, status);
+				if(self['$loadError']) {
+					throw self['$loadError'];
+				}
+
 				return null;
 			})
-			.catch(function(err) {
-				if(callback) callback(err);
+			.then(function() {
+				return self.$loader.initializeAsync();
+			})
+			.then(function(initStatus) {
+				self['$initError'] = null;
+				self['$initStatus'] = initStatus;
+
+				return null;
+			})
+			.catch(function(initErr) {
+				self['$initError'] = initErr;
+				self['$initStatus'] = null;
+			})
+			.then(function() {
+				if(self['$initError']) {
+					throw self['$initError'];
+				}
+
+				return null;
+			})
+			.then(function() {
+				return self.$loader.startAsync();
+			})
+			.then(function(startStatus) {
+				self['$startError'] = null;
+				self['$startStatus'] = startStatus;
+				return null;
+			})
+			.catch(function(startErr) {
+				self['$startError'] = startErr;
+				self['$startStatus'] = null;
+			})
+			.finally(function() {
+				if(callback) callback(self['$loadError'], status);
+				delete self['$loadError'];
 			});
 		});
+	},
+
+	'initialize': function(callback) {
+		if(callback) callback(this['$initError'], this['$initStatus']);
+
+		delete this['$initStatus'];
+		delete this['$initError'];
+	},
+
+	'start': function(dependencies, callback) {
+		this['dependencies'] = dependencies;
+		if(callback) callback(this['$startError'], this['$startStatus']);
+
+		delete this['$startStatus'];
+		delete this['$startError'];
 	},
 
 	'loadConfig': function(module, callback) {

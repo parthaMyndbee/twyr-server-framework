@@ -132,7 +132,7 @@ else {
 		var allStatuses = [];
 
 		// Call load / initialize / start...
-		twyrServer.loadAsync()
+		twyrServer.loadAsync(null)
 		.timeout(1000)
 		.then(function(status) {
 			allStatuses.push('Twyr Server #' + cluster.worker.id + '::Load status:\n' + JSON.stringify(status, null, '\t') + '\n\n');
