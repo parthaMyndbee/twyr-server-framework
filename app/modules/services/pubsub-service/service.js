@@ -60,14 +60,18 @@ var pubsubService = prime({
 			});
 
 			return null;
-		})
+		});
 	},
 
-	'publish': function(topic, data, options, callback) {
+	'publish': function(strategy, topic, data, options, callback) {
 		var self = this,
 			promiseResolutions = [];
 
+		if(!Array.isArray(strategy))
+			strategy = [strategy];
+
 		Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
+			if((strategy.indexOf('*') < 0) && (strategy.indexOf(pubsubStrategy) < 0)) return;
 			promiseResolutions.push((self['$listeners'][pubsubStrategy]).publishAsync(topic, data, options));
 		});
 
@@ -80,11 +84,15 @@ var pubsubService = prime({
 		});
 	},
 
-	'subscribe': function(topic, listener, callback) {
+	'subscribe': function(strategy, topic, listener, callback) {
 		var self = this,
 			promiseResolutions = [];
 
+		if(!Array.isArray(strategy))
+			strategy = [strategy];
+
 		Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
+			if((strategy.indexOf('*') < 0) && (strategy.indexOf(pubsubStrategy) < 0)) return;
 			promiseResolutions.push((self['$listeners'][pubsubStrategy]).subscribeAsync(topic, listener));
 		});
 
