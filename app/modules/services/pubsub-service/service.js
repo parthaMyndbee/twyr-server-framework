@@ -20,8 +20,7 @@ var base = require('./../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var path = require('path'),
-	redis = require('redis');
+var ascoltatori = promises.promisifyAll(require('ascoltatori'));
 
 var pubsubService = prime({
 	'inherits': base,
@@ -30,86 +29,46 @@ var pubsubService = prime({
 		base.call(this, module);
 	},
 
-	'publish': function(channel, data, callback) {
-		var validatedChannel = this._validateChannel(channel);
+	'start': function(dependencies, callback) {
+		var self = this,
+			promiseResolutions = [];
 
-		if(validatedChannel.status) {
-			if(callback) callback(new TypeError(validatedChannel.status));
-			return;
-		}
-
-		if(validatedChannel.unknownStrategies.length) {
-			if(callback) callback(new ReferenceError('Unknown Strategies: ' + JSON.stringify(validatedChannel.unknownStrategies)));
-			return;
-		}
-
-		var promiseResolutions = [],
-			self = this;
-
-		validatedChannel.knownStrategies.forEach(function(knownStrategy) {
-			promiseResolutions.push(self.$services[knownStrategy].publishAsync(validatedChannel.queue, data));
+		Object.keys(self.$config).forEach(function(pubsubStrategy) {
+			var buildSettings = self.$config[pubsubStrategy];
+			buildSettings[pubsubStrategy] = require(buildSettings[pubsubStrategy]);
+			promiseResolutions.push(ascoltatori.buildAsync(buildSettings));
 		});
 
 		promises.all(promiseResolutions)
-		.then(function(publishStatuses) {
-			var returnStatus = {};
-
-			validatedChannel.knownStrategies.forEach(function(strategy, index) {
-				returnStatus[strategy] = publishStatuses[index];
+		.then(function(listeners) {
+			Object.defineProperty(self, '$listeners', {
+				'__proto__': null,
+				'value': {}
 			});
 
-			if(callback) callback(null, returnStatus);
-			return null;
-		})
-		.catch(function(err) {
-			self.dependencies['logger-service'].error('Channel: ', channel, '\nData: ', data, '\nError: ', err);
-			if(callback) callback(err);
-		});
-	},
-
-	'subscribe': function(channel, listener, callback) {
-		var validatedChannel = this._validateChannel(channel);
-
-		if(validatedChannel.status) {
-			if(callback) callback(new TypeError(validatedChannel.status));
-			return;
-		}
-
-		if(validatedChannel.unknownStrategies.length) {
-			if(callback) callback(new ReferenceError('Unknown Strategies: ' + JSON.stringify(validatedChannel.unknownStrategies)));
-			return;
-		}
-
-		var promiseResolutions = [],
-			self = this;
-
-		validatedChannel.knownStrategies.forEach(function(knownStrategy) {
-			promiseResolutions.push(self.$services[knownStrategy].subscribeAsync(validatedChannel.queue, listener));
-		});
-
-		promises.all(promiseResolutions)
-		.then(function(publishStatuses) {
-			var returnStatus = {};
-
-			validatedChannel.knownStrategies.forEach(function(strategy, index) {
-				returnStatus[strategy] = publishStatuses[index];
+			Object.keys(self.$config).forEach(function(pubsubStrategy, index) {
+				self['$listeners'][pubsubStrategy] = promises.promisifyAll(listeners[index]);
 			});
 
-			if(callback) callback(null, returnStatus);
+			pubsubService.parent.start.call(self, dependencies, function(err, status) {
+				if(err) {
+					if(callback) callback(err);
+					return;
+				}
+
+				if(callback) callback(null, status);
+			});
+
 			return null;
 		})
-		.catch(function(err) {
-			self.dependencies['logger-service'].error('Channel: ', channel, '\nData: ', data, '\nError: ', err);
-			if(callback) callback(err);
-		});
 	},
 
-	'unsubscribe': function(subscriptionId, callback) {
-		var promiseResolutions = [],
-			self = this;
+	'publish': function(topic, data, options, callback) {
+		var self = this,
+			promiseResolutions = [];
 
-		Object.keys(self.$services).forEach(function(subService) {
-			promiseResolutions.push(self.$services[subService].unsubscribeAsync(subscriptionId));
+		Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
+			promiseResolutions.push((self['$listeners'][pubsubStrategy]).publishAsync(topic, data, options));
 		});
 
 		promises.all(promiseResolutions)
@@ -121,52 +80,62 @@ var pubsubService = prime({
 		});
 	},
 
-	'_validateChannel': function(channel) {
+	'subscribe': function(topic, listener, callback) {
 		var self = this,
-			validatedChannel = {
-				'status': null,
-				'queue': '',
-				'knownStrategies': [],
-				'unknownStrategies': []
-			};
+			promiseResolutions = [];
 
-		switch(typeof(channel)) {
-		case 'string':
-			validatedChannel.queue = channel;
-			validatedChannel.knownStrategies = [].concat(Object.keys(self.$services));
-			break;
+		Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
+			promiseResolutions.push((self['$listeners'][pubsubStrategy]).subscribeAsync(topic, listener));
+		});
 
-		case 'object':
-			if(!(channel.strategy && channel.queue)) {
-				validatedChannel.status = 'Invalid Channel Format';
-				return validatedChannel;
+		promises.all(promiseResolutions)
+		.then(function() {
+			if(callback) callback(null, true);
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
+
+	'unsubscribe': function(topic, listener, callback) {
+		var self = this,
+			promiseResolutions = [];
+
+		Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
+			promiseResolutions.push((self['$listeners'][pubsubStrategy]).unsubscribeAsync(topic, listener));
+		});
+
+		promises.all(promiseResolutions)
+		.then(function() {
+			if(callback) callback(null, true);
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
+
+	'stop': function(callback) {
+		var self = this;
+
+		pubsubService.parent.stop.call(self, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
 			}
 
-			if((typeof(channel.strategy) !== 'string') && (!Array.isArray(channel.strategy))) {
-				validatedChannel.status = 'Invalid Channel Format';
-				return validatedChannel;
-			}
-
-			validatedChannel.queue = channel.queue;
-			validatedChannel.knownStrategies = Array.isArray(channel.strategy) ? channel.strategy : [channel.strategy];
-
-			validatedChannel.knownStrategies = validatedChannel.knownStrategies.filter(function(knownStrategy) {
-				if((knownStrategy == '*') || (!!self.$services[knownStrategy])) return true;
-
-				validatedChannel.unknownStrategies.push(knownStrategy);
-				return false;
+			var promiseResolutions = [];
+			Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
+				promiseResolutions.push((self['$listeners'][pubsubStrategy]).closeAsync());
 			});
 
-			if(validatedChannel.knownStrategies.indexOf('*') >= 0)
-				validatedChannel.knownStrategies = Object.keys(self.$services);
-
-			return validatedChannel;
-			break;
-
-		default:
-			validatedChannel.status = 'Invalid Channel Type';
-			return validatedChannel;
-		}
+			promises.all(promiseResolutions)
+			.then(function() {
+				if(callback) callback(null, status);
+			})
+			.catch(function(teardownErr) {
+				if(callback) callback(teardownErr);
+			});
+		});
 	},
 
 	'name': 'pubsub-service',

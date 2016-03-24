@@ -72,7 +72,7 @@ var cacheService = prime({
 		var self = this;
 		cacheService.parent.stop.call(self, function(err, status) {
 			if(err) {
-				callback(err);
+				if(callback) callback(err);
 				return;
 			}
 
@@ -81,11 +81,11 @@ var cacheService = prime({
 				self.$cache.end(true);
 				delete self['$cache'];
 
-				callback(null, status);
+				if(callback) callback(null, status);
 				return null;
 			})
 			.catch(function(err) {
-				callback(err);
+				if(callback) callback(err);
 			});
 		});
 	},

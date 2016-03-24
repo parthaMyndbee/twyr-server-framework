@@ -26,6 +26,7 @@
 		"node": ">=4.0"
 	},
 	"dependencies": {
+		"ascoltatori": "*",
 		"bookshelf": "*",
 		"bluebird": "*",
 		"deepmerge": "*",
@@ -33,7 +34,6 @@
 		"fs-extra": "*",
 		"knex": "*",
 		"lodash": "*",
-		"mqtt": "*",
 		"node-print": "*",
 		"node-uuid": "*",
 		"pg": "*",
