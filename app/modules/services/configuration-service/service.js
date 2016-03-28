@@ -35,13 +35,6 @@ var configurationService = prime({
 				}
 			});
 
-		Object.defineProperty(this, '$currentConfig', {
-			'__proto__': null,
-			'configurable': true,
-			'writable': true,
-			'value': {}
-		});
-
 		base.call(this, module, configLoader);
 	},
 
@@ -70,11 +63,6 @@ var configurationService = prime({
 	},
 
 	'loadConfig': function(module, callback) {
-		if(this['$currentConfig'][module.name]) {
-			if(callback) callback(null, this['$currentConfig'][module.name]);
-			return;
-		}
-
 		var self = this,
 			promiseResolutions = [];
 
@@ -84,15 +72,15 @@ var configurationService = prime({
 
 		promises.all(promiseResolutions)
 		.then(function(loadedConfigs) {
-			self['$currentConfig'][module.name] = {};
+			var mergedConfig = {};
 			loadedConfigs.forEach(function(loadedConfig) {
-				self['$currentConfig'][module.name] = deepmerge(self['$currentConfig'][module.name], loadedConfig);
+				mergedConfig = deepmerge(mergedConfig, loadedConfig);
 			});
 
-			return self.saveConfigAsync(module, self['$currentConfig'][module.name]);
+			return self.saveConfigAsync(module, mergedConfig);
 		})
-		.then(function() {
-			if(callback) callback(null, self['$currentConfig'][module.name]);
+		.then(function(mergedConfig) {
+			if(callback) callback(null, mergedConfig);
 			return null;
 		})
 		.catch(function(err) {
@@ -110,9 +98,48 @@ var configurationService = prime({
 
 		promises.all(promiseResolutions)
 		.then(function(savedConfigs) {
-			self['$currentConfig'][module.name] = config;
-			if(callback) callback(null, self['$currentConfig'][module.name]);
+			if(callback) callback(null, config);
+			return null;
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
 
+	'getModuleState': function(module, callback) {
+		var self = this,
+			promiseResolutions = [];
+
+		Object.keys(self.$services).forEach(function(subService) {
+			promiseResolutions.push(self.$services[subService].getModuleStateAsync(module));
+		});
+
+		promises.all(promiseResolutions)
+		.then(function(moduleStates) {
+			var moduleState = true;
+			moduleStates.forEach(function(state) {
+				moduleState = (moduleState && state);
+			});
+
+			if(callback) callback(null, moduleState);
+			return null;
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
+
+	'setModuleState': function(module, enabled, callback) {
+		var self = this,
+			promiseResolutions = [];
+
+		Object.keys(self.$services).forEach(function(subService) {
+			promiseResolutions.push(self.$services[subService].setModuleStateAsync(module, enabled));
+		});
+
+		promises.all(promiseResolutions)
+		.then(function(moduleStates) {
+			if(callback) callback(null, enabled);
 			return null;
 		})
 		.catch(function(err) {

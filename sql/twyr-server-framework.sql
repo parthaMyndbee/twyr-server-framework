@@ -117,7 +117,7 @@ ALTER FUNCTION public.fn_get_module_ancestors(IN uuid) OWNER TO postgres;
 -- object: public.fn_get_module_descendants | type: FUNCTION --
 -- DROP FUNCTION IF EXISTS public.fn_get_module_descendants(IN uuid) CASCADE;
 CREATE FUNCTION public.fn_get_module_descendants (IN moduleid uuid)
-	RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text,  type public.module_type)
+	RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text,  type public.module_type,  enabled boolean)
 	LANGUAGE plpgsql
 	VOLATILE 
 	CALLED ON NULL INPUT
@@ -133,7 +133,8 @@ BEGIN
 			A.id,
 			A.parent_id,
 			A.name,
-			A.type
+			A.type,
+			fn_is_module_enabled(A.id) AS enabled
 		FROM
 			modules A
 		WHERE
@@ -144,7 +145,8 @@ BEGIN
 			B.id,
 			B.parent_id,
 			B.name,
-			B.type
+			B.type,
+			fn_is_module_enabled(B.id) AS enabled
 		FROM
 			q,
 			modules B
@@ -156,7 +158,8 @@ BEGIN
 		q.id,
 		q.parent_id,
 		q.name,
-		q.type
+		q.type,
+		q.enabled
 	FROM
 		q
 	ORDER BY
@@ -188,7 +191,7 @@ BEGIN
 	FROM
 		modules
 	WHERE
-		id IN  (SELECT id FROM fn_get_module_parents(moduleid)) AND
+		id IN  (SELECT id FROM fn_get_module_ancestors(moduleid)) AND
 		enabled = false
 	INTO
 		is_disabled;

@@ -90,7 +90,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<type name="text"/>
 	</parameter>
 	<parameter name="type">
-		<type name="public.module_type"/>
+		<type name="public.module_type" precision="0"/>
 	</parameter>
 	</return-type>
 	<parameter name="moduleid" in="true">
@@ -163,7 +163,10 @@ END;
 		<type name="text"/>
 	</parameter>
 	<parameter name="type">
-		<type name="public.module_type"/>
+		<type name="public.module_type" precision="0"/>
+	</parameter>
+	<parameter name="enabled">
+		<type name="boolean"/>
 	</parameter>
 	</return-type>
 	<parameter name="moduleid" in="true">
@@ -178,7 +181,8 @@ BEGIN
 			A.id,
 			A.parent_id,
 			A.name,
-			A.type
+			A.type,
+			fn_is_module_enabled(A.id) AS enabled
 		FROM
 			modules A
 		WHERE
@@ -189,7 +193,8 @@ BEGIN
 			B.id,
 			B.parent_id,
 			B.name,
-			B.type
+			B.type,
+			fn_is_module_enabled(B.id) AS enabled
 		FROM
 			q,
 			modules B
@@ -201,7 +206,8 @@ BEGIN
 		q.id,
 		q.parent_id,
 		q.name,
-		q.type
+		q.type,
+		q.enabled
 	FROM
 		q
 	ORDER BY
@@ -237,7 +243,7 @@ BEGIN
 	FROM
 		modules
 	WHERE
-		id IN  (SELECT id FROM fn_get_module_parents(moduleid)) AND
+		id IN  (SELECT id FROM fn_get_module_ancestors(moduleid)) AND
 		enabled = false
 	INTO
 		is_disabled;

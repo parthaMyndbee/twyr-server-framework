@@ -50,12 +50,10 @@ var twyrModuleBase = prime({
 		var self = this,
 			promiseResolutions = [];
 
-		if(configSrvc) {
+		if(configSrvc)
 			promiseResolutions.push(configSrvc.loadConfigAsync(self));
-		}
-		else {
+		else
 			promiseResolutions.push(null);
-		}
 
 		promises.all(promiseResolutions)
 		.then(function(moduleConfig) {

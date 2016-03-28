@@ -76,6 +76,14 @@ var fileConfigurationService = prime({
 		});
 	},
 
+	'getModuleState': function(module, callback) {
+		if(callback) callback(null, true);
+	},
+
+	'setModuleState': function(module, enabled, callback) {
+		if(callback) callback(null, enabled);
+	},
+
 	'name': 'file-configuration-service',
 	'basePath': __dirname,
 	'dependencies': []

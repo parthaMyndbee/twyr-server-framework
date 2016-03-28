@@ -91,6 +91,7 @@ var cacheService = prime({
 	},
 
 	'_setCache': function(callback, status) {
+		this.dependencies['logger-service'].debug('Cache connectivity is online with status: ', JSON.stringify(status));
 		if(callback) callback(null, status);
 	},
 
