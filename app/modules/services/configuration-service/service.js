@@ -35,12 +35,6 @@ var configurationService = prime({
 				}
 			});
 
-		this.$config = ({
-			'services': {
-				'path': './services'
-			}
-		});
-
 		Object.defineProperty(this, '$currentConfig', {
 			'__proto__': null,
 			'configurable': true,
