@@ -1,5 +1,5 @@
 /*
- * Name			: app/loader.js
+ * Name			: app/module-loader.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
  * Version		: 0.9.1.3
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
@@ -23,7 +23,7 @@ var DepGraph = require('dependency-graph').DepGraph,
 	filesystem = require('fs'),
 	path = require('path');
 
-var twyrLoader = prime({
+var moduleLoader = prime({
 	'constructor': function(module) {
 		// Sanity Check: The module itself must be valid...
 		if(!module.name || !module.dependencies) {
@@ -242,14 +242,11 @@ var twyrLoader = prime({
 					this.$module.$services[configSrvc.name] = promises.promisifyAll(configSrvc);
 				}
 
-				if(configSrvc)
-					configPromiseResolution.push(configSrvc.loadAsync(null));
-				else
-					configPromiseResolution.push(true);
+				if(configSrvc) configPromiseResolution.push(configSrvc.loadAsync(null));
 			}
 
 			promises.all(configPromiseResolution)
-			.then(function() {
+			.then(function(configLoadStatus) {
 				for(var idx in definedServices) {
 					// Check validity of the definition...
 					var Service = require(definedServices[idx]).service;
@@ -273,6 +270,11 @@ var twyrLoader = prime({
 					// Ask the service to load itself...
 					serviceNames.push(serviceInstance.name);
 					promiseResolutions.push(serviceInstance.loadAsync(configSrvc));
+				}
+
+				if(configLoadStatus.length) {
+					serviceNames.unshift('configuration-service');
+					promiseResolutions.unshift(configLoadStatus[0]);
 				}
 
 				return self._processPromisesAsync(serviceNames, promiseResolutions);
@@ -402,9 +404,7 @@ var twyrLoader = prime({
 				parentDeps = parentDeps.concat(this.$module.dependencies);
 			}
 			else {
-				Object.keys(this.$module.dependencies).forEach(function (serviceName) {
-					parentDeps.push(serviceName);
-				});
+				parentDeps = parentDeps.concat(Object.keys(this.$module.dependencies));
 			}
 		}
 
@@ -416,6 +416,7 @@ var twyrLoader = prime({
 
 			Object.keys(this.$module.$services).forEach(function (serviceName) {
 				var thisService = self.$module.$services[serviceName];
+				if(!thisService.dependencies) return;
 
 				thisService.dependencies.forEach(function(thisServiceDependency) {
 					try {
@@ -836,5 +837,5 @@ var twyrLoader = prime({
 	}
 });
 
-exports.loader = twyrLoader;
+exports.loader = moduleLoader;
 

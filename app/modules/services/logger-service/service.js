@@ -78,14 +78,7 @@ var loggerService = prime({
 		self.$winston.info('Winston Logger successfully setup, and running...');
 
 		// Start the sub-services, if any...
-		loggerService.parent.start.call(self, dependencies, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
-
-			if(callback) callback(null, status);
-		});
+		loggerService.parent.start.call(self, dependencies, callback);
 	},
 
 	'getInterface': function() {

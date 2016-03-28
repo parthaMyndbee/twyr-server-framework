@@ -28,7 +28,12 @@ var configurationService = prime({
 	'inherits': base,
 
 	'constructor': function(module) {
-		base.call(this, module);
+		var ConfigurationLoader = require('./configuration-loader').loader,
+			configLoader = promises.promisifyAll(new ConfigurationLoader(this), {
+				'filter': function(name, func) {
+					return true;
+				}
+			});
 
 		this.$config = ({
 			'services': {
@@ -42,103 +47,32 @@ var configurationService = prime({
 			'writable': true,
 			'value': {}
 		});
+
+		base.call(this, module, configLoader);
 	},
 
 	'load': function(configSrvc, callback) {
-		var self = this;
+		var self = this,
+			rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			configPath = path.join(rootPath, 'config', env, path.relative(rootPath, self.basePath).replace('app/modules', '') + '.js');
 
+		self['$config'] = require(configPath).config;
 		configurationService.parent.load.call(self, configSrvc, function(err, status) {
 			if(err) {
 				if(callback) callback(err);
 				return;
 			}
 
-			self.loadConfigAsync(self)
-			.then(function(config) {
-				self.$config = deepmerge(self.$config, config);
-
-				if(!self.$prioritizedSubServices) {
-					self.$prioritizedSubServices = [].concat(Object.keys(self.$services));
-					self.$prioritizedSubServices.sort(function(left, right) {
-						return ((self.$config.priorities[left] || 100) - (self.$config.priorities[right] || 100));
-					});
-				}
-
-				var configModified = false;
-				Object.keys(self.$services).forEach(function(subService) {
-					if(self.$config.priorities[subService]) return;
-
-					configModified = true;
-					self.$config.priorities[subService] = 100;
+			if(!self.$prioritizedSubServices) {
+				self.$prioritizedSubServices = [].concat(Object.keys(self.$services));
+				self.$prioritizedSubServices.sort(function(left, right) {
+					return ((self.$config.priorities[left] || 100) - (self.$config.priorities[right] || 100));
 				});
+			}
 
-				if(!configModified)
-					return null;
-
-				return self.saveConfigAsync(self, self.$config);
-			})
-			.catch(function(loadErr) {
-				self['$loadError'] = loadErr;
-			})
-			.then(function() {
-				if(self['$loadError']) {
-					throw self['$loadError'];
-				}
-
-				return null;
-			})
-			.then(function() {
-				return self.$loader.initializeAsync();
-			})
-			.then(function(initStatus) {
-				self['$initError'] = null;
-				self['$initStatus'] = initStatus;
-
-				return null;
-			})
-			.catch(function(initErr) {
-				self['$initError'] = initErr;
-				self['$initStatus'] = null;
-			})
-			.then(function() {
-				if(self['$initError']) {
-					throw self['$initError'];
-				}
-
-				return null;
-			})
-			.then(function() {
-				return self.$loader.startAsync();
-			})
-			.then(function(startStatus) {
-				self['$startError'] = null;
-				self['$startStatus'] = startStatus;
-				return null;
-			})
-			.catch(function(startErr) {
-				self['$startError'] = startErr;
-				self['$startStatus'] = null;
-			})
-			.finally(function() {
-				if(callback) callback(self['$loadError'], status);
-				delete self['$loadError'];
-			});
+			if(callback) callback(null, status);
 		});
-	},
-
-	'initialize': function(callback) {
-		if(callback) callback(this['$initError'], this['$initStatus']);
-
-		delete this['$initStatus'];
-		delete this['$initError'];
-	},
-
-	'start': function(dependencies, callback) {
-		this['dependencies'] = dependencies;
-		if(callback) callback(this['$startError'], this['$startStatus']);
-
-		delete this['$startStatus'];
-		delete this['$startError'];
 	},
 
 	'loadConfig': function(module, callback) {
@@ -150,16 +84,9 @@ var configurationService = prime({
 		var self = this,
 			promiseResolutions = [];
 
-		if(self.$prioritizedSubServices) {
-			self.$prioritizedSubServices.forEach(function(subService) {
-				promiseResolutions.push(self.$services[subService].loadConfigAsync(module));
-			});
-		}
-		else {
-			Object.keys(self.$services).forEach(function(subService) {
-				promiseResolutions.push(self.$services[subService].loadConfigAsync(module));
-			});
-		}
+		self.$prioritizedSubServices.forEach(function(subService) {
+			promiseResolutions.push(self.$services[subService].loadConfigAsync(module));
+		});
 
 		promises.all(promiseResolutions)
 		.then(function(loadedConfigs) {

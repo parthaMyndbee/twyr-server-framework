@@ -34,10 +34,6 @@ var databaseService = prime({
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		var rootPath = path.dirname(require.main.filename);
-		self['$config'].migrations.directory = path.join(rootPath, self['$config'].migrations.directory);
-		self['$config'].seeds.directory = path.join(rootPath, self['$config'].seeds.directory);
-
 		var knexInstance = knex(self.$config);
 		knexInstance.on('query', self._databaseQuery.bind(self));
 		knexInstance.on('query-error', self._databaseQueryError.bind(self));
@@ -45,23 +41,7 @@ var databaseService = prime({
 		self['$database'] = bookshelf(knexInstance);
 
 		// Start sub-services, if any...
-		databaseService.parent.start.call(self, dependencies, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
-
-			self.$database.knex.migrate.latest()
-			.then(function() {
-				return self.$database.knex.seed.run();
-			})
-			.catch(function(err) {
-				dependencies['logger-service'].info(self.name + '::migration Error:\n', err);
-			})
-			.finally(function() {
-				if(callback) callback(null, status);
-			});
-		});
+		databaseService.parent.start.call(self, dependencies, callback);
 	},
 
 	'getInterface': function() {

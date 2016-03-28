@@ -44,13 +44,27 @@ var databaseConfigurationService = prime({
 			return;
 		}
 
-		var knexInstance = knex(self.$module.$config.subservices.database);
+		var rootPath = path.dirname(require.main.filename);
+		self['$config'] = self.$module.$config.subservices.database;
+		self['$config'].migrations.directory = path.join(rootPath, self['$config'].migrations.directory);
+		self['$config'].seeds.directory = path.join(rootPath, self['$config'].seeds.directory);
+
+		var knexInstance = knex(self['$config']);
 		knexInstance.on('query', self._databaseQuery.bind(self));
 		knexInstance.on('query-error', self._databaseQueryError.bind(self));
 
 		self['$database'] = knexInstance;
 
-		self.$database.raw('SELECT unnest(enum_range(NULL::module_type)) AS types')
+		self.$database.migrate.latest()
+		.then(function() {
+			return self.$database.seed.run();
+		})
+		.catch(function(err) {
+			console.log(self.name + '::migration Error:\n', err);
+		})
+		.then(function() {
+			return self.$database.raw('SELECT unnest(enum_range(NULL::module_type)) AS types');
+		})
 		.then(function(result) {
 			self['$moduleTypes'] = lodash.map(result.rows, function(row) {
 				return row.types;

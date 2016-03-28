@@ -50,14 +50,7 @@ var pubsubService = prime({
 				self['$listeners'][pubsubStrategy] = promises.promisifyAll(listeners[index]);
 			});
 
-			pubsubService.parent.start.call(self, dependencies, function(err, status) {
-				if(err) {
-					if(callback) callback(err);
-					return;
-				}
-
-				if(callback) callback(null, status);
-			});
+			pubsubService.parent.start.call(self, dependencies, callback);
 
 			return null;
 		});
@@ -70,10 +63,20 @@ var pubsubService = prime({
 		if(!Array.isArray(strategy))
 			strategy = [strategy];
 
+		if((typeof(options) == 'function') && (!callback)) {
+			callback = options;
+			options = null;
+		}
+
 		Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
 			if((strategy.indexOf('*') < 0) && (strategy.indexOf(pubsubStrategy) < 0)) return;
 			promiseResolutions.push((self['$listeners'][pubsubStrategy]).publishAsync(topic, data, options));
 		});
+
+		if(!promiseResolutions.length) {
+			if(callback) callback(new TypeError('Unknown Strategy'));
+			return;
+		}
 
 		promises.all(promiseResolutions)
 		.then(function() {
@@ -95,6 +98,11 @@ var pubsubService = prime({
 			if((strategy.indexOf('*') < 0) && (strategy.indexOf(pubsubStrategy) < 0)) return;
 			promiseResolutions.push((self['$listeners'][pubsubStrategy]).subscribeAsync(topic, listener));
 		});
+
+		if(!promiseResolutions.length) {
+			if(callback) callback(new TypeError('Unknown Strategy'));
+			return;
+		}
 
 		promises.all(promiseResolutions)
 		.then(function() {

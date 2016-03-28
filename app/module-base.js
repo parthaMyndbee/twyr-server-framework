@@ -33,8 +33,8 @@ var twyrModuleBase = prime({
 		this['$uuid'] = uuid.v4().toString().replace(/-/g, '');
 
 		if(!loader) {
-			var TwyrLoader = require('./loader').loader;
-			this['$loader'] = promises.promisifyAll(new TwyrLoader(this), {
+			var ModuleLoader = require('./module-loader').loader;
+			this['$loader'] = promises.promisifyAll(new ModuleLoader(this), {
 				'filter': function(name, func) {
 					return true;
 				}

@@ -19,7 +19,7 @@ var prime = require('prime'),
 /**
  * Module dependencies, required for this module
  */
-var baseLoader = require('./../../loader').loader,
+var baseLoader = require('./../../module-loader').loader,
 	path = require('path');
 
 var serviceLoader = prime({
