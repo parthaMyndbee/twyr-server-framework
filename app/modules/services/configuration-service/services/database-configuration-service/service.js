@@ -255,9 +255,9 @@ var databaseConfigurationService = prime({
 				return;
 
 			var configObj = {};
-			configObj['configuration'] = config.configuration;
+			configObj['id'] = config.id;
 			configObj['enabled'] = config.enabled;
-			delete config['enabled'];
+			configObj['configuration'] = config.configuration;
 
 			var configSubObj = self._reorgConfigsToTree(configArray, config.id);
 			self['$moduleTypes'].forEach(function(moduleType) {

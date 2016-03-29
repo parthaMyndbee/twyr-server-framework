@@ -12,7 +12,7 @@
 
 exports.config = ({
 	'loadFactor': 1.0,
-	'restart': false,
+	'restart': true,
 
 	'repl': {
 		'controlPort': 1137,
