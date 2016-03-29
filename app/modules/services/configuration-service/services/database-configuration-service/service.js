@@ -150,12 +150,25 @@ var databaseConfigurationService = prime({
 	},
 
 	'getModuleState': function(module, callback) {
-		var cachedModule = self._getCachedModule(module);
+		var self = this,
+			cachedModule = self._getCachedModule(module);
+
+		if(!cachedModule) {
+			if(callback) callback(null, true);
+			return;
+		}
+
 		if(callback) callback(null, cachedModule['enabled']);
 	},
 
 	'setModuleState': function(module, enabled, callback) {
-		var cachedModule = self._getCachedModule(module);
+		var self = this,
+			cachedModule = self._getCachedModule(module);
+
+		if(!cachedModule) {
+			if(callback) callback(null, true);
+			return;
+		}
 
 		self.$database.raw('UPDATE modules SET enabled = ? WHERE id = ?', [enabled, cachedModule.id])
 		.then(function() {
@@ -189,9 +202,7 @@ var databaseConfigurationService = prime({
 			return self.$database.raw('SELECT A.*, B.configuration FROM fn_get_module_descendants(?) A INNER JOIN modules B ON (A.id = B.id)', [result.rows[0].id]);
 		})
 		.then(function(result) {
-			self['$cachedConfigArray'] = result.rows;
 			self['$cachedConfigTree'] = self._reorgConfigsToTree(result.rows, null);
-
 			if(callback) callback(null, true);
 			return null;
 		})
@@ -201,23 +212,8 @@ var databaseConfigurationService = prime({
 	},
 
 	'_getCachedModule': function(module) {
-		var self = this;
-
-		// Straight Line case....
-		var possibleModules = self['$cachedConfigArray'].filter(function(cachedConfig) {
-			return (cachedConfig.name == module.name);
-		});
-
-		if(!possibleModules.length) {
-			return null;
-		}
-
-		if(possibleModules.length == 1) {
-			return possibleModules[0];
-		}
-
-		// Get the path to the root
-		var currentModule = module,
+		var self = this,
+			currentModule = module,
 			pathSegments = [];
 
 		do {

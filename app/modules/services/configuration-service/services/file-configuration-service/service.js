@@ -33,7 +33,7 @@ var fileConfigurationService = prime({
 	'loadConfig': function(module, callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			configPath = path.join(rootPath, 'config', env, path.relative(path.dirname(require.main.filename), module.basePath).replace('app/modules', '') + '.js'),
+			configPath = path.join(rootPath, 'config', env, path.relative(rootPath, module.basePath).replace('app/modules', '') + '.js'),
 			self = this;
 
 		filesystem.ensureDirAsync(path.dirname(configPath))
@@ -59,7 +59,7 @@ var fileConfigurationService = prime({
 	'saveConfig': function (module, config, callback) {
 		var rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			configPath = path.join(rootPath, 'config', env, path.relative(path.dirname(require.main.filename), module.basePath).replace('app/modules', '') + '.js'),
+			configPath = path.join(rootPath, 'config', env, path.relative(rootPath, module.basePath).replace('app/modules', '') + '.js'),
 			configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 
 		filesystem.ensureDirAsync(path.dirname(configPath))

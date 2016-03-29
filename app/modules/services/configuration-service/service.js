@@ -73,14 +73,24 @@ var configurationService = prime({
 		promises.all(promiseResolutions)
 		.then(function(loadedConfigs) {
 			var mergedConfig = {};
+
 			loadedConfigs.forEach(function(loadedConfig) {
+				if(!loadedConfig) return;
 				mergedConfig = deepmerge(mergedConfig, loadedConfig);
 			});
 
 			return self.saveConfigAsync(module, mergedConfig);
 		})
 		.then(function(mergedConfig) {
+			return promises.all([mergedConfig, self.getModuleStateAsync(module)]);
+		})
+		.then(function(result) {
+			var mergedConfig = result[0],
+				enabled = result[1];
+
+			module['$enabled'] = enabled;
 			if(callback) callback(null, mergedConfig);
+
 			return null;
 		})
 		.catch(function(err) {
@@ -121,7 +131,9 @@ var configurationService = prime({
 				moduleState = (moduleState && state);
 			});
 
+			module['$enabled'] = moduleState;
 			if(callback) callback(null, moduleState);
+
 			return null;
 		})
 		.catch(function(err) {
@@ -139,7 +151,14 @@ var configurationService = prime({
 
 		promises.all(promiseResolutions)
 		.then(function(moduleStates) {
-			if(callback) callback(null, enabled);
+			var moduleState = true;
+			moduleStates.forEach(function(state) {
+				moduleState = (moduleState && state);
+			});
+
+			module['$enabled'] = moduleState;
+			if(callback) callback(null, moduleState);
+
 			return null;
 		})
 		.catch(function(err) {
