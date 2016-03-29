@@ -88,9 +88,8 @@ var configurationService = prime({
 			var mergedConfig = result[0],
 				enabled = result[1];
 
-			module['$enabled'] = enabled;
-			if(callback) callback(null, mergedConfig);
-
+//			module['$enabled'] = enabled;
+			if(callback) callback(null, { 'configuration': mergedConfig, 'state': enabled });
 			return null;
 		})
 		.catch(function(err) {
@@ -131,9 +130,7 @@ var configurationService = prime({
 				moduleState = (moduleState && state);
 			});
 
-			module['$enabled'] = moduleState;
 			if(callback) callback(null, moduleState);
-
 			return null;
 		})
 		.catch(function(err) {
@@ -156,9 +153,7 @@ var configurationService = prime({
 				moduleState = (moduleState && state);
 			});
 
-			module['$enabled'] = moduleState;
 			if(callback) callback(null, moduleState);
-
 			return null;
 		})
 		.catch(function(err) {

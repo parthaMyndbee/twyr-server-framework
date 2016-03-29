@@ -456,11 +456,16 @@ var moduleLoader = prime({
 				}
 
 				if(currentDependency) {
+					var interfaceMethod = (function() {
+						if(!this['$enabled']) return null;
+						return (this.getInterface ? this.getInterface() : this);
+					}).bind(currentDependency);
+
 					Object.defineProperty(thisServiceDependencies, thisServiceDependency, {
 						'__proto__': null,
 						'configurable': true,
 						'enumerable': true,
-						'get': (currentDependency.getInterface ? currentDependency.getInterface.bind(currentDependency) : currentDependency)
+						'get': interfaceMethod
 					});
 				}
 			}

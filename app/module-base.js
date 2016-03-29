@@ -57,7 +57,9 @@ var twyrModuleBase = prime({
 
 		promises.all(promiseResolutions)
 		.then(function(moduleConfig) {
-			self['$config'] = configSrvc ? moduleConfig[0] : self['$config'];
+			self['$config'] = configSrvc ? moduleConfig[0].configuration : self['$config'];
+			self['$enabled'] = configSrvc ? moduleConfig[0].state : true;
+
 			return self.$loader.loadAsync(configSrvc, self.basePath);
 		})
 		.then(function(status) {
