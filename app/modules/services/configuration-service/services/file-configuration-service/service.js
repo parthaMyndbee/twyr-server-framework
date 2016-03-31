@@ -20,7 +20,8 @@ var base = require('./../../../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var path = require('path'),
+var chokidar = require('chokidar'),
+	path = require('path'),
 	filesystem = promises.promisifyAll(require('fs-extra'));
 
 var fileConfigurationService = prime({
@@ -28,6 +29,46 @@ var fileConfigurationService = prime({
 
 	'constructor': function(module) {
 		base.call(this, module);
+	},
+
+	'start': function(dependencies, callback) {
+		var self = this,
+			rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase();
+
+		self['$watcher'] = chokidar.watch(path.join(rootPath, 'config', env), {
+			'ignored': /[\/\\]\./,
+			'ignoreInitial': true
+		});
+
+		self['$watcher']
+			.on('add', self._onNewConfiguration.bind(self))
+			.on('change', self._onUpdateConfiguration.bind(self))
+			.on('unlink', self._onDeleteConfiguration.bind(self));
+
+		fileConfigurationService.parent.start.call(self, dependencies, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
+			}
+
+			if(callback) callback(null, true);
+		});
+	},
+
+	'stop': function(callback) {
+		var self = this;
+		self['$watcher'].close();
+
+		// Stop sub-services, if any...
+		fileConfigurationService.parent.stop.call(self, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
+			}
+
+			if(callback) callback(null, status);
+		});
 	},
 
 	'loadConfig': function(module, callback) {
@@ -82,6 +123,40 @@ var fileConfigurationService = prime({
 
 	'setModuleState': function(module, enabled, callback) {
 		if(callback) callback(null, enabled);
+	},
+
+	'_onNewConfiguration': function(filePath) {
+		var self = this,
+			rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			module = path.relative(rootPath, filePath).replace('config/' + env, '').replace('.js', '');
+
+		delete require.cache[filePath];
+		self.$module.emit('new-config', self.name, module, require(filePath).config);
+	},
+
+	'_onUpdateConfiguration': function(filePath) {
+		var self = this,
+			rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			module = path.relative(rootPath, filePath).replace('config/' + env, '').replace('.js', '');
+
+		delete require.cache[filePath];
+		self.$module.emit('update-config', self.name, module, require(filePath).config);
+	},
+
+	'_onDeleteConfiguration': function(filePath) {
+		var self = this,
+			rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			module = path.relative(rootPath, filePath).replace('config/' + env, '').replace('.js', '');
+
+		delete require.cache[filePath];
+		self.$module.emit('delete-config', self.name, module);
+	},
+
+	'_processConfigChange': function(configUpdateModule, config) {
+		console.log(this.name + '::_processConfigChange:\nModule: ' + configUpdateModule + '\nConfig: ' + JSON.stringify(config, null, '\t'));
 	},
 
 	'name': 'file-configuration-service',

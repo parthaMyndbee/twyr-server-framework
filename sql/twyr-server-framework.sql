@@ -281,6 +281,35 @@ CREATE TRIGGER trigger_check_module_upsert_is_valid
 	EXECUTE PROCEDURE public.fn_check_module_upsert_is_valid();
 -- ddl-end --
 
+-- object: public.fn_notify_config_change | type: FUNCTION --
+-- DROP FUNCTION IF EXISTS public.fn_notify_config_change() CASCADE;
+CREATE FUNCTION public.fn_notify_config_change ()
+	RETURNS trigger
+	LANGUAGE plpgsql
+	VOLATILE 
+	CALLED ON NULL INPUT
+	SECURITY INVOKER
+	COST 1
+	AS $$
+
+BEGIN
+	PERFORM pg_notify('config-change', CAST(NEW.id AS text));
+	RETURN NEW;
+END;
+$$;
+-- ddl-end --
+ALTER FUNCTION public.fn_notify_config_change() OWNER TO postgres;
+-- ddl-end --
+
+-- object: trigger_notify_config_change | type: TRIGGER --
+-- DROP TRIGGER IF EXISTS trigger_notify_config_change ON public.modules  ON public.modules CASCADE;
+CREATE TRIGGER trigger_notify_config_change
+	AFTER UPDATE
+	ON public.modules
+	FOR EACH ROW
+	EXECUTE PROCEDURE public.fn_notify_config_change();
+-- ddl-end --
+
 -- object: fk_modules_modules | type: CONSTRAINT --
 -- ALTER TABLE public.modules DROP CONSTRAINT IF EXISTS fk_modules_modules CASCADE;
 ALTER TABLE public.modules ADD CONSTRAINT fk_modules_modules FOREIGN KEY (parent_id)

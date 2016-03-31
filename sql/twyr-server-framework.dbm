@@ -328,6 +328,33 @@ END;
 		<function signature="public.fn_check_module_upsert_is_valid()"/>
 </trigger>
 
+<function name="fn_notify_config_change"
+		window-func="false"
+		returns-setof="false"
+		behavior-type="CALLED ON NULL INPUT"
+		function-type="VOLATILE"
+		security-type="SECURITY INVOKER"
+		execution-cost="1"
+		row-amount="0">
+	<schema name="public"/>
+	<role name="postgres"/>
+	<language name="plpgsql" protected="true" sql-disabled="true"/>
+	<return-type>
+	<type name="trigger"/>
+	</return-type>
+	<definition><![CDATA[
+BEGIN
+	PERFORM pg_notify('config-change', CAST(NEW.id AS text));
+	RETURN NEW;
+END;]]></definition>
+</function>
+
+<trigger name="trigger_notify_config_change" firing-type="AFTER" per-line="true" constraint="false"
+	 ins-event="false" del-event="false" upd-event="true" trunc-event="false"
+	 table="public.modules">
+		<function signature="public.fn_notify_config_change()"/>
+</trigger>
+
 <constraint name="fk_modules_modules" type="fk-constr" comparison-type="MATCH FULL"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="public.modules" table="public.modules">
 	<columns names="parent_id" ref-type="src-columns"/>
@@ -339,7 +366,7 @@ END;
 	 dst-table="public.modules"
 	 src-required="false" dst-required="false">
 	<line>
-		<position x="717.828" y="90.28"/>
+		<position x="717.828" y="96.28"/>
 	<position x="717.828" y="9"/>
 	<position x="562.885" y="9"/>
 	</line>

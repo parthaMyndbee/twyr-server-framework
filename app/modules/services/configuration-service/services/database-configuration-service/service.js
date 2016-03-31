@@ -20,9 +20,11 @@ var base = require('./../../../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var knex = require('knex'),
+var inflection = require('inflection'),
+	knex = require('knex'),
 	lodash = require('lodash'),
-	path = require('path');
+	path = require('path'),
+	pg = require('pg');
 
 var databaseConfigurationService = prime({
 	'inherits': base,
@@ -55,14 +57,25 @@ var databaseConfigurationService = prime({
 		knexInstance.on('query', self._databaseQuery.bind(self));
 		knexInstance.on('query-error', self._databaseQueryError.bind(self));
 
-		self['$database'] = knexInstance;
-
-		self.$database.migrate.latest()
+		knexInstance.migrate.latest()
 		.then(function() {
-			return self.$database.seed.run();
+			return knexInstance.seed.run();
 		})
 		.catch(function(err) {
 			console.log(self.name + '::migration Error:\n', err);
+		})
+		.then(function() {
+			return knexInstance.destroy();
+		})
+		.then(function() {
+			self['$database'] = promises.promisifyAll(new pg.Client(self.$config.connection));
+			return self['$database'].connectAsync();
+		})
+		.then(function() {
+			self['$database'].on('notice', self._databaseNotice.bind(self));
+			self['$database'].on('notification', self._databaseNotification.bind(self));
+
+			return self['$database'].queryAsync('LISTEN "config-change"');
 		})
 		.then(function() {
 			return self._reloadAllConfigAsync();
@@ -92,16 +105,15 @@ var databaseConfigurationService = prime({
 				return;
 			}
 
-			self.$database.destroy()
+			self['$database'].queryAsync('UNLISTEN "config-change"')
 			.then(function() {
-				if(callback) callback(null, status);
-				return null;
-			})
-			.catch(function(destroyErr) {
-				if(callback) callback(destroyErr);
-			})
-			.finally(function() {
+				self.$database.end();
 				delete self['$database'];
+
+				if(callback) callback(null, status);
+			})
+			.catch(function(unlistenErr) {
+				if(callback) callback(unlistenErr);
 			});
 		});
 	},
@@ -134,7 +146,7 @@ var databaseConfigurationService = prime({
 		var cachedModule = self._getCachedModule(module);
 		if(cachedModule) {
 			cachedModule.configuration = config;
-			self.$database.raw('UPDATE modules SET configuration = ? WHERE id = ?;', [config, cachedModule.id])
+			self.$database.queryAsync('UPDATE modules SET configuration = $1 WHERE id = $2;', [config, cachedModule.id])
 			.then(function() {
 				if(callback) callback(null, cachedModule.configuration);
 			})
@@ -170,7 +182,7 @@ var databaseConfigurationService = prime({
 			return;
 		}
 
-		self.$database.raw('UPDATE modules SET enabled = ? WHERE id = ?', [enabled, cachedModule.id])
+		self.$database.queryAsync('UPDATE modules SET enabled = $1 WHERE id = $2', [enabled, cachedModule.id])
 		.then(function() {
 			cachedModule['enabled'] = enabled;
 			if(callback) callback(null, enabled);
@@ -180,26 +192,52 @@ var databaseConfigurationService = prime({
 		});
 	},
 
+	'_processConfigChange': function(configUpdateModule, config) {
+		var currentModule = this;
+		while(currentModule.$module)
+			currentModule = currentModule.$module;
+
+		var pathSegments = path.join(currentModule.name, configUpdateModule).split(path.sep);
+
+		// Iterate down the cached config objects
+		var cachedModule = this['$cachedConfigTree'][pathSegments.shift()];
+		pathSegments.forEach(function(segment) {
+			if(!cachedModule) return;
+			cachedModule = cachedModule[segment];
+		});
+
+		if(!cachedModule)
+			return;
+
+		this.$database.queryAsync('UPDATE modules SET configuration = $1 WHERE id = $2;', [config, cachedModule.id])
+		.then(function() {
+			cachedModule.configuration = config;
+		})
+		.catch(function(err) {
+			console.error('Error saving configuration for ' + cachedModule.name + ':\n', err);
+		});
+	},
+
 	'_reloadAllConfig': function(callback) {
 		var self = this;
 
-		self.$database.raw('SELECT unnest(enum_range(NULL::module_type)) AS types')
+		self.$database.queryAsync('SELECT unnest(enum_range(NULL::module_type)) AS type')
 		.then(function(result) {
 			self['$moduleTypes'] = lodash.map(result.rows, function(row) {
-				return row.types;
+				return inflection.pluralize(row.type);
 			});
 
 			var serverModule = self;
 			while(serverModule.$module) serverModule = serverModule.$module;
 
-			return self.$database.raw('SELECT id FROM modules WHERE name = ? AND parent_id IS NULL', [serverModule.name]);
+			return self.$database.queryAsync('SELECT id FROM modules WHERE name = $1 AND parent_id IS NULL', [serverModule.name]);
 		})
 		.then(function(result) {
 			if(!result.rows.length) {
 				return { 'rows': [] };
 			}
 
-			return self.$database.raw('SELECT A.*, B.configuration FROM fn_get_module_descendants(?) A INNER JOIN modules B ON (A.id = B.id)', [result.rows[0].id]);
+			return self.$database.queryAsync('SELECT A.*, B.configuration FROM fn_get_module_descendants($1) A INNER JOIN modules B ON (A.id = B.id)', [result.rows[0].id]);
 		})
 		.then(function(result) {
 			self['$cachedConfigTree'] = self._reorgConfigsToTree(result.rows, null);
@@ -220,9 +258,11 @@ var databaseConfigurationService = prime({
 			pathSegments.unshift(currentModule.name);
 
 			if(currentModule.$module) {
-				var moduleType = 'component';
-				if(Object.keys(currentModule.$module.$services).indexOf(currentModule.name) >= 0)
-					moduleType = 'service';
+				var moduleType = '';
+				self['$moduleTypes'].forEach(function(type) {
+					if(Object.keys(currentModule.$module['$' + type]).indexOf(currentModule.name) >= 0)
+						moduleType = type;
+				});
 
 				pathSegments.unshift(moduleType);
 			}
@@ -268,7 +308,7 @@ var databaseConfigurationService = prime({
 				reOrgedTree[config.name] = configObj;
 			}
 			else {
-				reOrgedTree[config.type][config.name] = configObj;
+				reOrgedTree[inflection.pluralize(config.type)][config.name] = configObj;
 			}
 		});
 
@@ -285,6 +325,14 @@ var databaseConfigurationService = prime({
 
 	'_databaseQueryError': function(err, queryData) {
 		console.error(this.name + '::_databaseQueryError: ', { 'query': queryData, 'error': err });
+	},
+
+	'_databaseNotification': function(data) {
+		console.log(this.name + '::_databaseNotification:\nChannel: ' + data.channel + '\nPayload: ' + data.payload);
+	},
+
+	'_databaseNotice': function() {
+		console.log(this.name + '::_databaseNotification: ', JSON.stringify(arguments, null, '\t'));
 	},
 
 	'name': 'database-configuration-service',

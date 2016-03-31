@@ -44,7 +44,13 @@ var configurationService = prime({
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
 			configPath = path.join(rootPath, 'config', env, path.relative(rootPath, self.basePath).replace('app/modules', '') + '.js');
 
+		delete require.cache[configPath];
 		self['$config'] = require(configPath).config;
+
+		self.on('new-config', self._processConfigChange.bind(self));
+		self.on('update-config', self._processConfigChange.bind(self));
+		self.on('delete-config', self._processConfigChange.bind(self));
+
 		configurationService.parent.load.call(self, configSrvc, function(err, status) {
 			if(err) {
 				if(callback) callback(err);
@@ -88,7 +94,6 @@ var configurationService = prime({
 			var mergedConfig = result[0],
 				enabled = result[1];
 
-//			module['$enabled'] = enabled;
 			if(callback) callback(null, { 'configuration': mergedConfig, 'state': enabled });
 			return null;
 		})
@@ -158,6 +163,16 @@ var configurationService = prime({
 		})
 		.catch(function(err) {
 			if(callback) callback(err);
+		});
+	},
+
+	'_processConfigChange': function(eventFirerModule, configUpdateModule, config) {
+		var self = this;
+		Object.keys(self.$services).forEach(function(subService) {
+			if(subService == eventFirerModule)
+				return;
+
+			(self.$services[subService])._processConfigChange(configUpdateModule, config);
 		});
 	},
 
