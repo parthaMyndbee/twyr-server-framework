@@ -156,7 +156,18 @@ var fileConfigurationService = prime({
 	},
 
 	'_processConfigChange': function(configUpdateModule, config) {
-		console.log(this.name + '::_processConfigChange:\nModule: ' + configUpdateModule + '\nConfig: ' + JSON.stringify(config, null, '\t'));
+		var rootPath = path.dirname(require.main.filename),
+			env = (process.env.NODE_ENV || 'development').toLowerCase(),
+			configPath = path.join(rootPath, 'config', env, configUpdateModule + '.js'),
+			configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
+
+		filesystem.ensureDirAsync(path.dirname(configPath))
+		.then(function() {
+			return filesystem.writeFileAsync(configPath, configString);
+		})
+		.catch(function(err) {
+			console.error(configPath + ' Save Configuration to File Error: ', err);
+		});
 	},
 
 	'name': 'file-configuration-service',

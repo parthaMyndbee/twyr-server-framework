@@ -144,21 +144,25 @@ var databaseConfigurationService = prime({
 		}
 
 		var cachedModule = self._getCachedModule(module);
-		if(cachedModule) {
-			cachedModule.configuration = config;
-			self.$database.queryAsync('UPDATE modules SET configuration = $1 WHERE id = $2;', [config, cachedModule.id])
-			.then(function() {
-				if(callback) callback(null, cachedModule.configuration);
-			})
-			.catch(function(err) {
-				console.error('Error saving configuration for ' + module.name + ':\n', err);
-				if(callback) callback(null, {});
-			});
-
+		if(!cachedModule) {
+			if(callback) callback(null, {});
 			return;
 		}
 
-		if(callback) callback(null, {});
+		if(JSON.stringify(cachedModule.configuration) == JSON.stringify(config)) {
+			if(callback) callback(null, cachedModule.configuration);
+			return;
+		}
+
+		cachedModule.configuration = config;
+		self.$database.queryAsync('UPDATE modules SET configuration = $1 WHERE id = $2;', [config, cachedModule.id])
+		.then(function() {
+			if(callback) callback(null, cachedModule.configuration);
+		})
+		.catch(function(err) {
+			console.error('Error saving configuration for ' + module.name + ':\n', err);
+			if(callback) callback(null, {});
+		});
 	},
 
 	'getModuleState': function(module, callback) {
@@ -284,6 +288,10 @@ var databaseConfigurationService = prime({
 		var reOrgedTree = {},
 			self = this;
 
+		if(!self['$cachedMap']) {
+			self['$cachedMap'] = {};
+		}
+
 		if(parentId) {
 			this['$moduleTypes'].forEach(function(moduleType) {
 				reOrgedTree[moduleType] = {};
@@ -296,6 +304,7 @@ var databaseConfigurationService = prime({
 
 			var configObj = {};
 			configObj['id'] = config.id;
+			configObj['name'] = config.name;
 			configObj['enabled'] = config.enabled;
 			configObj['configuration'] = config.configuration;
 
@@ -310,6 +319,8 @@ var databaseConfigurationService = prime({
 			else {
 				reOrgedTree[inflection.pluralize(config.type)][config.name] = configObj;
 			}
+
+			self['$cachedMap'][(configObj['id'])] = configObj;
 		});
 
 		return reOrgedTree;
@@ -328,7 +339,52 @@ var databaseConfigurationService = prime({
 	},
 
 	'_databaseNotification': function(data) {
-		console.log(this.name + '::_databaseNotification:\nChannel: ' + data.channel + '\nPayload: ' + data.payload);
+		var self = this;
+
+		self.$database.queryAsync('SELECT enabled, configuration FROM modules WHERE id = $1', [data.payload])
+		.then(function(result) {
+			if(!result.rows.length)
+				return;
+
+			var newConfiguration = JSON.stringify(result.rows[0].configuration, null, '\t'),
+				newEnabled = result.rows[0].enabled,
+				oldConfiguration = JSON.stringify(self['$cachedMap'][data.payload]['configuration'], null, '\t'),
+				oldEnabled = self['$cachedMap'][data.payload]['enabled'],
+				emitEvent = false;
+
+			if(oldEnabled != newEnabled) {
+				self['$cachedMap'][data.payload]['enabled'] = newEnabled;
+			}
+
+			if(oldConfiguration != newConfiguration) {
+				self['$cachedMap'][data.payload]['configuration'] = result.rows[0].configuration;
+				emitEvent = true;
+			}
+
+			if(!emitEvent)
+				return null;
+
+			return self.$database.queryAsync('SELECT name, type FROM fn_get_module_ancestors($1) ORDER BY level DESC', [data.payload]);
+		})
+		.then(function(result) {
+			if(!result) return null;
+			result = result.rows;
+
+			result.shift();
+			if(!result.length) return null;
+
+			var module = [];
+			result.forEach(function(pathSegment) {
+				module.push(inflection.pluralize(pathSegment.type));
+				module.push(pathSegment.name);
+			});
+
+			self.$module.emit('update-config', self.name, module.join('/'), self['$cachedMap'][data.payload]['configuration']);
+			return null;
+		})
+		.catch(function(err) {
+			console.error('Error retrieving configuration for ' + data.payload + ':\n', err);
+		});
 	},
 
 	'_databaseNotice': function() {
