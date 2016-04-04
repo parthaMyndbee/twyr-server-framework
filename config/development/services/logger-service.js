@@ -16,7 +16,7 @@ exports.config = ({
 		"prettyPrint": true,
 		"filename": "logs/twyr-server.log",
 		"maxsize": 10485760,
-		"maxFiles": 7,
+		"maxFiles": 12,
 		"tailable": true,
 		"zippedArchive": true,
 		"handleExceptions": true,
