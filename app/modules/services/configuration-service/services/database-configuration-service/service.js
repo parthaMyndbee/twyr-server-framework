@@ -149,7 +149,7 @@ var databaseConfigurationService = prime({
 			return;
 		}
 
-		if(JSON.stringify(cachedModule.configuration) == JSON.stringify(config)) {
+		if(JSON.stringify(cachedModule.configuration, null, '\t') == JSON.stringify(config, null, '\t')) {
 			if(callback) callback(null, cachedModule.configuration);
 			return;
 		}
@@ -186,9 +186,14 @@ var databaseConfigurationService = prime({
 			return;
 		}
 
+		if(cachedModule.enabled == enabled) {
+			if(callback) callback(null, enabled);
+			return;
+		}
+
+		cachedModule['enabled'] = enabled;
 		self.$database.queryAsync('UPDATE modules SET enabled = $1 WHERE id = $2', [enabled, cachedModule.id])
 		.then(function() {
-			cachedModule['enabled'] = enabled;
 			if(callback) callback(null, enabled);
 		})
 		.catch(function(err) {
@@ -213,10 +218,12 @@ var databaseConfigurationService = prime({
 		if(!cachedModule)
 			return;
 
+		if(JSON.stringify(cachedModule.configuration, null, '\t') == JSON.stringify(config, null, '\t')) {
+			return;
+		}
+
+		cachedModule.configuration = config;
 		this.$database.queryAsync('UPDATE modules SET configuration = $1 WHERE id = $2;', [config, cachedModule.id])
-		.then(function() {
-			cachedModule.configuration = config;
-		})
 		.catch(function(err) {
 			console.error('Error saving configuration for ' + cachedModule.name + ':\n', err);
 		});

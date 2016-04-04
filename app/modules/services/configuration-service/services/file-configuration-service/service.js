@@ -46,6 +46,8 @@ var fileConfigurationService = prime({
 			.on('change', self._onUpdateConfiguration.bind(self))
 			.on('unlink', self._onDeleteConfiguration.bind(self));
 
+		self['$cacheMap'] = {};
+
 		fileConfigurationService.parent.start.call(self, dependencies, function(err, status) {
 			if(err) {
 				if(callback) callback(err);
@@ -88,6 +90,7 @@ var fileConfigurationService = prime({
 				config = require(configPath).config;
 			}
 
+			self['$cacheMap'][configPath] = config;
 			if(callback) callback(null, config);
 			return null;
 		})
@@ -98,13 +101,20 @@ var fileConfigurationService = prime({
 	},
 
 	'saveConfig': function (module, config, callback) {
-		var rootPath = path.dirname(require.main.filename),
+		var self = this,
+			rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
 			configPath = path.join(rootPath, 'config', env, path.relative(rootPath, module.basePath).replace('app/modules', '') + '.js'),
 			configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 
+		if(JSON.stringify(self['$cacheMap'][configPath], null, '\t') == JSON.stringify(config, null, '\t')) {
+			if(callback) callback(null, config);
+			return;
+		}
+
 		filesystem.ensureDirAsync(path.dirname(configPath))
 		.then(function() {
+			self['$cacheMap'][configPath] = config;
 			return filesystem.writeFileAsync(configPath, configString);
 		})
 		.then(function () {
@@ -129,9 +139,8 @@ var fileConfigurationService = prime({
 		var self = this,
 			rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			module = path.relative(rootPath, filePath).replace('config/' + env, '').replace('.js', '');
+			module = path.relative(rootPath, filePath).replace('config/' + env + '/', '').replace('.js', '');
 
-		delete require.cache[filePath];
 		self.$module.emit('new-config', self.name, module, require(filePath).config);
 	},
 
@@ -139,30 +148,42 @@ var fileConfigurationService = prime({
 		var self = this,
 			rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			module = path.relative(rootPath, filePath).replace('config/' + env, '').replace('.js', '');
+			module = path.relative(rootPath, filePath).replace('config/' + env + '/', '').replace('.js', '');
 
 		delete require.cache[filePath];
-		self.$module.emit('update-config', self.name, module, require(filePath).config);
+		setTimeout(function() {
+			if(JSON.stringify(self['$cacheMap'][filePath], null, '\t') == JSON.stringify(require(filePath).config, null, '\t')) {
+				return;
+			}
+
+			self.$module.emit('update-config', self.name, module, require(filePath).config);
+		}, 500);
 	},
 
 	'_onDeleteConfiguration': function(filePath) {
 		var self = this,
 			rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
-			module = path.relative(rootPath, filePath).replace('config/' + env, '').replace('.js', '');
+			module = path.relative(rootPath, filePath).replace('config/' + env + '/', '').replace('.js', '');
 
 		delete require.cache[filePath];
 		self.$module.emit('delete-config', self.name, module);
 	},
 
 	'_processConfigChange': function(configUpdateModule, config) {
-		var rootPath = path.dirname(require.main.filename),
+		var self = this,
+			rootPath = path.dirname(require.main.filename),
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
 			configPath = path.join(rootPath, 'config', env, configUpdateModule + '.js'),
 			configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 
+		if(JSON.stringify(self['$cacheMap'][configPath], null, '\t') == JSON.stringify(config, null, '\t')) {
+			return;
+		}
+
 		filesystem.ensureDirAsync(path.dirname(configPath))
 		.then(function() {
+			self['$cacheMap'][configPath] = config;
 			return filesystem.writeFileAsync(configPath, configString);
 		})
 		.catch(function(err) {

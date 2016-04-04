@@ -27,6 +27,7 @@
 	},
 	"dependencies": {
 		"ascoltatori": "*",
+		"babel-runtime": "*",
 		"bookshelf": "*",
 		"bluebird": "*",
 		"chokidar": "*",
@@ -35,7 +36,7 @@
 		"fs-extra": "*",
 		"inflection": "*",
 		"knex": "*",
-		"lodash": ">= 4.0",
+		"lodash": "*",
 		"node-print": "*",
 		"node-uuid": "*",
 		"pg": "*",

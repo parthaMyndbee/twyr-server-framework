@@ -174,6 +174,34 @@ var configurationService = prime({
 
 			(self.$services[subService])._processConfigChange(configUpdateModule, config);
 		});
+
+		var currentModule = self,
+			pathSegments = null;
+
+		while(currentModule.$module) currentModule = currentModule.$module;
+
+		pathSegments = configUpdateModule.split('/');
+		console.log('_processConfigChange: ' + JSON.stringify(arguments, null, '\t'));
+
+		pathSegments.forEach(function(pathSegment) {
+			if(!currentModule) return;
+
+			if(currentModule['$' + pathSegment]) {
+				currentModule = currentModule['$' + pathSegment];
+				return;
+			}
+
+			if(currentModule[pathSegment]) {
+				currentModule = currentModule[pathSegment];
+				return;
+			}
+
+			currentModule = null;
+		});
+
+		if(currentModule) {
+			currentModule._reconfigure(config);
+		}
 	},
 
 	'name': 'configuration-service',

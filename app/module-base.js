@@ -167,6 +167,10 @@ var twyrModuleBase = prime({
 		});
 	},
 
+	'_reconfigure': function(newConfig) {
+		console.log(this.name + '::_reconfigure:\n' + JSON.stringify(newConfig, null, '\t'));
+	},
+
 	'_exists': function (path, mode, callback) {
 		filesystem.access(path, mode || filesystem.F_OK, function (err) {
 			if(callback) callback(null, !err);
