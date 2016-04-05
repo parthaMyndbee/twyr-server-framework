@@ -130,6 +130,7 @@ else {
 
 	var startupFn = function () {
 		var allStatuses = [];
+		if(!twyrServer) return;
 
 		// Call load / initialize / start...
 		twyrServer.loadAsync(null)
@@ -167,6 +168,7 @@ else {
 
 	var shutdownFn = function () {
 		var allStatuses = [];
+		if(!twyrServer) return;
 
 		twyrServer.stopAsync()
 		.timeout(60000)
@@ -211,6 +213,7 @@ else {
 
 	serverDomain.on('error', function(err) {
 		console.error('Twyr Server #' + cluster.worker.id + '::Domain Error:\n', JSON.stringify(err, null, '\t'));
+		console.trace();
 		shutdownFn();
 	});
 

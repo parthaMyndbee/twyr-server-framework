@@ -20,7 +20,8 @@ var base = require('./../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var path = require('path');
+var path = require('path'),
+	winston = require('winston');
 
 var loggerService = prime({
 	'inherits': base,
@@ -30,55 +31,21 @@ var loggerService = prime({
 	},
 
 	'start': function(dependencies, callback) {
-		var self = this;
+		this['$winston'] = new winston.Logger({
+			'transports': [ new (winston.transports.Console)() ]
+		});
 
-		self['$winston'] = require('winston');
-
-		// Determine the root folder of the application
-		var rootPath = path.dirname(require.main.filename);
-
-		// Add transports as we go along...
-		for(var transportIdx in self.$config) {
-			var thisTransport = self.$config[transportIdx];
-
-			if(thisTransport.filename) {
-				var dirName = path.join(rootPath, path.dirname(thisTransport.filename)),
-					baseName = path.basename(thisTransport.filename, path.extname(thisTransport.filename));
-
-				thisTransport.filename = path.resolve(path.join(dirName, baseName + '-' + self.$module.$uuid + path.extname(thisTransport.filename)));
-			}
-
-			try {
-				if(self.$winston.transports[transportIdx])
-					self.$winston.remove(self.$winston.transports[transportIdx]);
-			}
-			catch(err) {
-				// console.error('Error Removing ' + transportIdx + ' Transport from Winston: ', err.message);
-			}
-
-			try {
-				if(self.$winston.transports[transportIdx]) {
-					// console.log('Adding ' + transportIdx + ' Transport to the Winston instance');
-					self.$winston.add(self.$winston.transports[transportIdx], thisTransport);
-				}
-				else {
-					// TODO: Load the required Winston driver before adding it
-				}
-			}
-			catch(err) {
-				console.error('Error Adding ' + transportIdx + ' Transport to Winston: ', err.message);
-			}
-		}
-
-		// Ensure the logger isn't crashing the Server :-)
-		self.$winston.exitOnError = false;
-		self.$winston.emitErrs = false;
+		this._setupWinston(this['$config'], this['$winston']);
 
 		// The first log of the day...
-		self.$winston.info('Winston Logger successfully setup, and running...');
+		this.$winston.info('Winston Logger successfully setup, and running...');
+
+		// Ensure the logger isn't crashing the Server :-)
+		this.$winston.exitOnError = false;
+		this.$winston.emitErrs = false;
 
 		// Start the sub-services, if any...
-		loggerService.parent.start.call(self, dependencies, callback);
+		loggerService.parent.start.call(this, dependencies, callback);
 	},
 
 	'getInterface': function() {
@@ -97,21 +64,55 @@ var loggerService = prime({
 
 			// The last log of the day...
 			self.$winston.info('\n\nThe time is gone, the server is over, thought I\'d something more to play....\nGoodbye, blue sky, goodbye...\n');
-
-			// Remove the transports so that it stops logging
-			for(var transportIdx in self.$config) {
-				try {
-					// console.log('Removing ' + transportIdx + ' Transport from the Winston instance');
-					self.$winston.remove(self.$winston.transports[transportIdx]);
-				}
-				catch(error) {
-					// console.error('Error Removing ' + transportIdx + ' from the Winston instance: ', err.message);
-				}
-			}
+			self._teardownWinston(self['$config'], self['$winston']);
 
 			delete self['$winston'];
 			if(callback) callback(null, status);
 		});
+	},
+
+	'_reconfigure': function(config) {
+		try {
+			this['$config'] = config;
+			this._setupWinston(this['$config'], this['$winston']);
+		}
+		catch(err) {
+			console.error(this.name + '::_reconfigure error: ', err);
+		}
+	},
+
+	'_setupWinston': function(config, winstonInstance) {
+		var rootPath = path.dirname(require.main.filename),
+			transports = [];
+
+		for(var transportIdx in config) {
+			var thisTransport = JSON.parse(JSON.stringify(config[transportIdx]));
+
+			if(thisTransport.filename) {
+				var dirName = path.join(rootPath, path.dirname(thisTransport.filename)),
+					baseName = path.basename(thisTransport.filename, path.extname(thisTransport.filename));
+
+				thisTransport.filename = path.resolve(path.join(dirName, baseName + '-' + this.$module.$uuid + path.extname(thisTransport.filename)));
+			}
+
+			transports.push(new (winston.transports[transportIdx])(thisTransport));
+		}
+
+		// Re-configure with new transports
+		winstonInstance.configure({
+			'transports': transports
+		});
+	},
+
+	'_teardownWinston': function(config, winstonInstance) {
+		for(var transportIdx in config) {
+			try {
+				winstonInstance.remove(winstonInstance.transports[transportIdx]);
+			}
+			catch(error) {
+				// console.error('Error Removing ' + transportIdx + ' from the Winston instance: ', err.message);
+			}
+		}
 	},
 
 	'name': 'logger-service',

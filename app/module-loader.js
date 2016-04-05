@@ -435,14 +435,18 @@ var moduleLoader = prime({
 			promiseResolutions = [],
 			serviceNames = [];
 
-		for(var initOrderIdx in initOrderList) {
-			var thisServiceName = initOrderList[initOrderIdx],
-				thisService = this.$module.$services[thisServiceName],
+		initOrderList.forEach(function(thisServiceName) {
+			var thisService = self.$module.$services[thisServiceName],
 				thisServiceDependencies = {};
 
-			for(var depIdx in thisService.dependencies) {
-				var thisServiceDependency = thisService.dependencies[depIdx],
-					currentModule = this.$module,
+			if(!thisService.dependencies) {
+				serviceNames.push(thisService.name);
+				promiseResolutions.push(thisService.startAsync.bind(thisService, thisServiceDependencies));
+				return;
+			}
+
+			thisService.dependencies.forEach(function(thisServiceDependency) {
+				var currentModule = self.$module,
 					currentDependency = null;
 
 				while(!!currentModule && !currentDependency) {
@@ -468,11 +472,11 @@ var moduleLoader = prime({
 						'get': interfaceMethod
 					});
 				}
-			}
+			});
 
 			serviceNames.push(thisService.name);
 			promiseResolutions.push(thisService.startAsync.bind(thisService, thisServiceDependencies));
-		}
+		});
 
 		// Start Services one after the other
 		promises.mapSeries(promiseResolutions, function(serviceStart) {
@@ -497,14 +501,18 @@ var moduleLoader = prime({
 			self = this;
 
 		// Start each component
-		for(var componentIdx in this.$module.$components) {
-			var thisComponentName = componentIdx,
-				thisComponent = this.$module.$components[thisComponentName],
+		Object.keys(this.$module.$components).forEach(function(thisComponentName) {
+			var thisComponent = this.$module.$components[thisComponentName],
 				thisComponentDependencies = {};
 
-			for(var depIdx in thisComponent.dependencies) {
-				var thisComponentDependency = thisComponent.dependencies[depIdx],
-					currentModule = this.$module,
+			if(!thisComponent.dependencies) {
+				componentNames.push(thisComponent.name);
+				promiseResolutions.push(thisComponent.startAsync.bind(thisComponent, thisComponentDependencies));
+				return;
+			}
+
+			thisComponent.dependencies.forEach(function(thisComponentDependency) {
+				var currentModule = self.$module,
 					currentDependency = null;
 
 				while(!!currentModule && !currentDependency) {
@@ -518,18 +526,23 @@ var moduleLoader = prime({
 				}
 
 				if(currentDependency) {
+					var interfaceMethod = (function() {
+						if(!this['$enabled']) return null;
+						return (this.getInterface ? this.getInterface() : this);
+					}).bind(currentDependency);
+
 					Object.defineProperty(thisComponentDependencies, thisComponentDependency, {
 						'__proto__': null,
 						'configurable': true,
 						'enumerable': true,
-						'get': (currentDependency.getInterface ? currentDependency.getInterface.bind(currentDependency) : currentDependency)
+						'get': interfaceMethod
 					});
 				}
-			}
+			});
 
 			componentNames.push(thisComponent.name);
 			promiseResolutions.push(thisComponent.startAsync(thisComponentDependencies));
-		}
+		});
 
 		// Wait for the components to start...
 		this._processPromisesAsync(componentNames, promiseResolutions)

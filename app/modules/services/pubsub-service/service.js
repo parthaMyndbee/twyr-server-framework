@@ -27,32 +27,28 @@ var pubsubService = prime({
 
 	'constructor': function(module) {
 		base.call(this, module);
+
+		this._setupAscoltatoriAsync = promises.promisify(this._setupAscoltatori);
+		this._teardownAscoltatoriAsync = promises.promisify(this._teardownAscoltatori);
 	},
 
 	'start': function(dependencies, callback) {
-		var self = this,
-			promiseResolutions = [];
+		var self = this;
 
-		Object.keys(self.$config).forEach(function(pubsubStrategy) {
-			var buildSettings = self.$config[pubsubStrategy];
-			buildSettings[pubsubStrategy] = require(buildSettings[pubsubStrategy]);
-			promiseResolutions.push(ascoltatori.buildAsync(buildSettings));
-		});
+		pubsubService.parent.start.call(self, dependencies, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
+			}
 
-		promises.all(promiseResolutions)
-		.then(function(listeners) {
-			Object.defineProperty(self, '$listeners', {
-				'__proto__': null,
-				'value': {}
+			self['$listeners'] = {};
+			self._setupAscoltatoriAsync(self['$config'], self['$listeners'])
+			.then(function() {
+				if(callback) callback(null, status);
+			})
+			.catch(function(setupErr) {
+				if(callback) callback(setupErr);
 			});
-
-			Object.keys(self.$config).forEach(function(pubsubStrategy, index) {
-				self['$listeners'][pubsubStrategy] = promises.promisifyAll(listeners[index]);
-			});
-
-			pubsubService.parent.start.call(self, dependencies, callback);
-
-			return null;
 		});
 	},
 
@@ -139,18 +135,73 @@ var pubsubService = prime({
 				return;
 			}
 
-			var promiseResolutions = [];
-			Object.keys(self.$listeners).forEach(function(pubsubStrategy) {
-				promiseResolutions.push((self['$listeners'][pubsubStrategy]).closeAsync());
-			});
-
-			promises.all(promiseResolutions)
+			self._teardownAscoltatoriAsync(self['$config'], self['$listeners'])
 			.then(function() {
 				if(callback) callback(null, status);
 			})
 			.catch(function(teardownErr) {
 				if(callback) callback(teardownErr);
 			});
+		});
+	},
+
+	'_reconfigure': function(config) {
+		var self = this;
+
+		self._teardownAscoltatoriAsync(self['$config'], self['$listeners'])
+		.then(function() {
+			self['$config'] = config;
+			return self._setupAscoltatoriAsync(self['$config'], self['$listeners']);
+		})
+		.catch(function(err) {
+			self.dependencies['logger-service'].error(self.name + '::_reconfigure:\n', err);
+		});
+	},
+
+	'_setupAscoltatori': function(config, listeners, callback) {
+		var self = this,
+			promiseResolutions = [];
+
+		Object.keys(config).forEach(function(pubsubStrategy) {
+			var buildSettings = JSON.parse(JSON.stringify(config[pubsubStrategy]));
+			buildSettings[pubsubStrategy] = require(buildSettings[pubsubStrategy]);
+
+			promiseResolutions.push(ascoltatori.buildAsync(buildSettings));
+		});
+
+		promises.all(promiseResolutions)
+		.then(function(ascoltatories) {
+			Object.keys(config).forEach(function(pubsubStrategy, index) {
+				listeners[pubsubStrategy] = promises.promisifyAll(ascoltatories[index]);
+			});
+
+			if(callback) callback(null);
+			return null;
+		})
+		.catch(function(err) {
+			self.dependencies['logger-service'].error(self.name + '::_setupAscoltatori:\n', err);
+			if(callback) callback(err);
+		});
+	},
+
+	'_teardownAscoltatori': function(config, listeners, callback) {
+		var self = this,
+			promiseResolutions = [];
+
+		Object.keys(listeners).forEach(function(pubsubStrategy) {
+			promiseResolutions.push((listeners[pubsubStrategy]).closeAsync());
+		});
+
+		promises.all(promiseResolutions)
+		.then(function() {
+			listeners = {};
+			if(callback) callback(null);
+
+			return null;
+		})
+		.catch(function(err) {
+			self.dependencies['logger-service'].error(self.name + '::_teardownAscoltatori:\n', err);
+			if(callback) callback(err);
 		});
 	},
 

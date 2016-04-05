@@ -91,6 +91,7 @@ var cacheService = prime({
 	},
 
 	'_setCache': function(callback, status) {
+		this.dependencies['logger-service'].debug('Connected to the cache server: ', JSON.stringify(status, null, '\t'));
 		if(callback) callback(null, status);
 	},
 

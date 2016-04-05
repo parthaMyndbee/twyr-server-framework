@@ -181,8 +181,6 @@ var configurationService = prime({
 		while(currentModule.$module) currentModule = currentModule.$module;
 
 		pathSegments = configUpdateModule.split('/');
-		console.log('_processConfigChange: ' + JSON.stringify(arguments, null, '\t'));
-
 		pathSegments.forEach(function(pathSegment) {
 			if(!currentModule) return;
 
