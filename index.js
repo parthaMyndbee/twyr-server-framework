@@ -17,7 +17,8 @@ var promises = require('bluebird'),
 	domain = require('domain'),
 	path = require('path'),
 	printf = require('node-print'),
-	repl = require('repl');
+	repl = require('repl'),
+	uuid = require('node-uuid');
 
 // Get what we need - environment, and the configuration specific to that environment
 var env = (process.env.NODE_ENV || 'development').toLowerCase(),
@@ -25,6 +26,7 @@ var env = (process.env.NODE_ENV || 'development').toLowerCase(),
 	numCPUs = require('os').cpus().length;
 
 var timeoutMonitor = {},
+	clusterId = uuid.v4().toString().replace(/-/g, ''),
 	cluster = promises.promisifyAll(require('cluster'));
 
 // Instantiate the application, and start the execution
@@ -65,7 +67,7 @@ if (cluster.isMaster) {
 			console.log('\n');
 		})
 		.on('disconnect', function(worker) {
-			console.log('Twyr Server #' + worker.id + ': Disconnected');
+			console.log('Twyr Server #' + worker.id + ': Disconnected\nClearing timeout: ' + JSON.stringify(timeoutMonitor[worker.id]));
 			clearTimeout(timeoutMonitor[worker.id]);
 		})
 		.on('exit', function(worker, code, signal) {
@@ -126,7 +128,7 @@ else {
 	// domain so that the rest of the process is not infected on error
 	var serverDomain = domain.create(),
 		TwyrServer = require(config['main']).twyrServer,
-		twyrServer = promises.promisifyAll(new TwyrServer(null));
+		twyrServer = promises.promisifyAll(new TwyrServer(null, clusterId, cluster.worker.id));
 
 	var startupFn = function () {
 		var allStatuses = [];
@@ -195,6 +197,9 @@ else {
 		.timeout(60000)
 		.then(function() {
 	        cluster.worker.disconnect();
+			timeoutMonitor[cluster.worker.id] = setTimeout(function() {
+				cluster.worker.kill();
+			}, 2000);
 			return null;
 		})
 		.catch(function (err) {
@@ -213,7 +218,6 @@ else {
 
 	serverDomain.on('error', function(err) {
 		console.error('Twyr Server #' + cluster.worker.id + '::Domain Error:\n', JSON.stringify(err, null, '\t'));
-		console.trace();
 		shutdownFn();
 	});
 

@@ -1,6 +1,6 @@
 exports.config = ({
 	"client": "pg",
-	"debug": false,
+	"debug": true,
 	"connection": {
 		"host": "127.0.0.1",
 		"port": "5432",
@@ -9,7 +9,7 @@ exports.config = ({
 		"database": "twyr"
 	},
 	"pool": {
-		"min": 2,
-		"max": 4
+		"min": 0,
+		"max": 6
 	}
 });

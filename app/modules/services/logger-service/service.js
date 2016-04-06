@@ -72,6 +72,7 @@ var loggerService = prime({
 	},
 
 	'_reconfigure': function(config) {
+		console.log(this.name + '::_reconfigure');
 		try {
 			this['$config'] = config;
 			this._setupWinston(this['$config'], this['$winston']);

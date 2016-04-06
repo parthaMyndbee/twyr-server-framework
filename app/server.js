@@ -25,8 +25,9 @@ var path = require('path');
 var app = prime({
 	'inherits': base,
 
-	'constructor': function (module) {
+	'constructor': function (module, clusterId, workedId) {
 		base.call(this, module);
+		this['$uuid'] = clusterId + '-' + workedId;
 		this._loadConfig();
 	},
 

@@ -51,6 +51,8 @@ var configurationService = prime({
 		self.on('update-config', self._processConfigChange.bind(self));
 		self.on('delete-config', self._processConfigChange.bind(self));
 
+		self.on('update-state', self._processStateChange.bind(self));
+
 		configurationService.parent.load.call(self, configSrvc, function(err, status) {
 			if(err) {
 				if(callback) callback(err);
@@ -175,12 +177,31 @@ var configurationService = prime({
 			(self.$services[subService])._processConfigChange(configUpdateModule, config);
 		});
 
-		var currentModule = self,
+		var currentModule = self._getModuleFromPath(configUpdateModule);
+		if(currentModule) currentModule._reconfigure(config);
+	},
+
+	'_processStateChange': function(eventFirerModule, stateUpdateModule, state) {
+		var self = this;
+
+		Object.keys(self.$services).forEach(function(subService) {
+			if(subService == eventFirerModule)
+				return;
+
+			(self.$services[subService])._processStateChange(stateUpdateModule, state);
+		});
+
+		var currentModule = self._getModuleFromPath(stateUpdateModule);
+		if(currentModule) currentModule['$enabled'] = state;
+	},
+
+	'_getModuleFromPath': function(pathFromRoot) {
+		var currentModule = this,
 			pathSegments = null;
 
 		while(currentModule.$module) currentModule = currentModule.$module;
 
-		pathSegments = configUpdateModule.split('/');
+		pathSegments = pathFromRoot.split('/');
 		pathSegments.forEach(function(pathSegment) {
 			if(!currentModule) return;
 
@@ -197,9 +218,7 @@ var configurationService = prime({
 			currentModule = null;
 		});
 
-		if(currentModule) {
-			currentModule._reconfigure(config);
-		}
+		return currentModule;
 	},
 
 	'name': 'configuration-service',

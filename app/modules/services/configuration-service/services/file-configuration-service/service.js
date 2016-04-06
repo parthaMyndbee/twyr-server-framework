@@ -191,6 +191,10 @@ var fileConfigurationService = prime({
 		});
 	},
 
+	'_processStateChange': function(configUpdateModule, state) {
+		return;
+	},
+
 	'name': 'file-configuration-service',
 	'basePath': __dirname,
 	'dependencies': []

@@ -229,6 +229,34 @@ var databaseConfigurationService = prime({
 		});
 	},
 
+	'_processStateChange': function(configUpdateModule, state) {
+		var currentModule = this;
+		while(currentModule.$module)
+			currentModule = currentModule.$module;
+
+		var pathSegments = path.join(currentModule.name, configUpdateModule).split(path.sep);
+
+		// Iterate down the cached config objects
+		var cachedModule = this['$cachedConfigTree'][pathSegments.shift()];
+		pathSegments.forEach(function(segment) {
+			if(!cachedModule) return;
+			cachedModule = cachedModule[segment];
+		});
+
+		if(!cachedModule)
+			return;
+
+		if(cachedModule.enabled == state) {
+			return;
+		}
+
+		cachedModule.enabled = state;
+		this.$database.queryAsync('UPDATE modules SET enabled = $1 WHERE id = $2;', [state, cachedModule.id])
+		.catch(function(err) {
+			console.error('Error saving state for ' + cachedModule.name + ':\n', err);
+		});
+	},
+
 	'_reloadAllConfig': function(callback) {
 		var self = this;
 
@@ -346,7 +374,9 @@ var databaseConfigurationService = prime({
 	},
 
 	'_databaseNotification': function(data) {
-		var self = this;
+		var self = this,
+			emitConfigChangeEvent = false,
+			emitStateChangeEvent = false;
 
 		self.$database.queryAsync('SELECT enabled, configuration FROM modules WHERE id = $1', [data.payload])
 		.then(function(result) {
@@ -356,19 +386,19 @@ var databaseConfigurationService = prime({
 			var newConfiguration = JSON.stringify(result.rows[0].configuration, null, '\t'),
 				newEnabled = result.rows[0].enabled,
 				oldConfiguration = JSON.stringify(self['$cachedMap'][data.payload]['configuration'], null, '\t'),
-				oldEnabled = self['$cachedMap'][data.payload]['enabled'],
-				emitEvent = false;
+				oldEnabled = self['$cachedMap'][data.payload]['enabled'];
 
 			if(oldEnabled != newEnabled) {
 				self['$cachedMap'][data.payload]['enabled'] = newEnabled;
+				emitStateChangeEvent = true;
 			}
 
 			if(oldConfiguration != newConfiguration) {
 				self['$cachedMap'][data.payload]['configuration'] = result.rows[0].configuration;
-				emitEvent = true;
+				emitConfigChangeEvent = true;
 			}
 
-			if(!emitEvent)
+			if(!(emitConfigChangeEvent || emitStateChangeEvent))
 				return null;
 
 			return self.$database.queryAsync('SELECT name, type FROM fn_get_module_ancestors($1) ORDER BY level DESC', [data.payload]);
@@ -386,7 +416,14 @@ var databaseConfigurationService = prime({
 				module.push(pathSegment.name);
 			});
 
-			self.$module.emit('update-config', self.name, module.join('/'), self['$cachedMap'][data.payload]['configuration']);
+			if(emitConfigChangeEvent) {
+				self.$module.emit('update-config', self.name, module.join('/'), self['$cachedMap'][data.payload]['configuration']);
+			}
+
+			if(emitStateChangeEvent) {
+				self.$module.emit('update-state', self.name, module.join('/'), self['$cachedMap'][data.payload]['enabled']);
+			}
+
 			return null;
 		})
 		.catch(function(err) {
