@@ -28,11 +28,68 @@ var cacheService = prime({
 
 	'constructor': function(module) {
 		base.call(this, module);
+
+		redis.RedisClient.prototype = promises.promisifyAll(redis.RedisClient.prototype);
+		redis.Multi.prototype = promises.promisifyAll(redis.Multi.prototype);
+
+		this._setupCacheAsync = promises.promisify(this._setupCache.bind(this));
+		this._teardownCacheAsync = promises.promisify(this._teardownCache.bind(this));
 	},
 
 	'start': function(dependencies, callback) {
 		var self = this;
-		self.$config.options['retry_strategy'] = (function (options) {
+
+		self._setupCacheAsync()
+		.then(function(status) {
+			cacheService.parent.start.call(self, dependencies, callback);
+			return null;
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
+	},
+
+	'getInterface': function() {
+		return this.$cache;
+	},
+
+	'stop': function(callback) {
+		var self = this;
+		cacheService.parent.stop.call(self, function(err, status) {
+			if(err) {
+				if(callback) callback(err);
+				return;
+			}
+
+			self._teardownCacheAsync()
+			.then(function() {
+				if(callback) callback(null, status);
+				return null;
+			})
+			.catch(function(teardownErr) {
+				if(callback) callback(teardownErr);
+			});
+		});
+	},
+
+	'_reconfigure': function(config) {
+		var self = this;
+
+		self._teardownCacheAsync()
+		.then(function() {
+			self['$config'] = config;
+			return self._setupCacheAsync();
+		})
+		.catch(function(err) {
+			self.dependencies['logger-service'].error(self.name + '::_reconfigure:\n', err);
+		});
+	},
+
+	'_setupCache': function(callback) {
+		var self = this;
+
+		var thisConfig = JSON.parse(JSON.stringify(self['$config']));
+		thisConfig.options['retry_strategy'] = (function (options) {
 			if (options.error.code === 'ECONNREFUSED') {
 				// End reconnecting on a specific error and flush all commands with a individual error
 				return new Error('The server refused the connection');
@@ -52,52 +109,30 @@ var cacheService = prime({
 			return Math.max(options.attempt * 100, 3000);
 		});
 
-		cacheService.parent.start.call(self, dependencies, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
+		self['$cache'] = redis.createClient(self.$config.port, self.$config.host, self.$config.options);
+		self.$cache.on('connect', function(status) {
+			if(callback) callback(null, status);
+		});
 
-			self['$cache'] = promises.promisifyAll(redis.createClient(self.$config.port, self.$config.host, self.$config.options));
-			self.$cache.on('connect', self._setCache.bind(self, callback, status));
-			self.$cache.on('error', self._cacheError.bind(self, callback, status));
+		self.$cache.on('error', function(err) {
+			if(callback) callback(err);
 		});
 	},
 
-	'getInterface': function() {
-		return this.$cache;
-	},
-
-	'stop': function(callback) {
+	'_teardownCache': function(callback) {
 		var self = this;
-		cacheService.parent.stop.call(self, function(err, status) {
-			if(err) {
-				if(callback) callback(err);
-				return;
-			}
 
-			self.$cache.quitAsync()
-			.then(function() {
-				self.$cache.end(true);
-				delete self['$cache'];
+		self.$cache.quitAsync()
+		.then(function() {
+			self.$cache.end(true);
+			delete self['$cache'];
 
-				if(callback) callback(null, status);
-				return null;
-			})
-			.catch(function(err) {
-				if(callback) callback(err);
-			});
+			if(callback) callback(null);
+			return null;
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
 		});
-	},
-
-	'_setCache': function(callback, status) {
-		this.dependencies['logger-service'].debug('Connected to the cache server: ', JSON.stringify(status, null, '\t'));
-		if(callback) callback(null, status);
-	},
-
-	'_cacheError': function(callback, status, err) {
-		this.dependencies['logger-service'].error('Error connecting to the cache:\n', err);
-		if(callback) callback(err, status);
 	},
 
 	'name': 'cache-service',

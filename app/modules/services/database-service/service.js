@@ -29,19 +29,22 @@ var databaseService = prime({
 
 	'constructor': function(module) {
 		base.call(this, module);
+
+		this._setupBookshelfAsync = promises.promisify(this._setupBookshelf.bind(this));
+		this._teardownBookshelfAsync = promises.promisify(this._teardownBookshelf.bind(this));
 	},
 
 	'start': function(dependencies, callback) {
 		var self = this;
 
-		var knexInstance = knex(self.$config);
-		knexInstance.on('query', self._databaseQuery.bind(self));
-		knexInstance.on('query-error', self._databaseQueryError.bind(self));
-
-		self['$database'] = bookshelf(knexInstance);
-
-		// Start sub-services, if any...
-		databaseService.parent.start.call(self, dependencies, callback);
+		self._setupBookshelfAsync()
+		.then(function() {
+			databaseService.parent.start.call(self, dependencies, callback);
+			return null;
+		})
+		.catch(function(err) {
+			if(callback) callback(err);
+		});
 	},
 
 	'getInterface': function() {
@@ -58,17 +61,56 @@ var databaseService = prime({
 				return;
 			}
 
-			self.$database.knex.destroy()
+			self._teardownBookshelfAsync()
 			.then(function() {
 				if(callback) callback(null, status);
 				return null;
 			})
-			.catch(function(destroyErr) {
-				if(callback) callback(destroyErr);
-			})
-			.finally(function() {
-				delete self['$database'];
+			.catch(function(teardownErr) {
+				if(callback) callback(teardownErr);
 			});
+		});
+	},
+
+	'_reconfigure': function(config) {
+		var self = this;
+
+		self._teardownBookshelfAsync()
+		.then(function() {
+			self['$config'] = config;
+			return self._setupBookshelfAsync();
+		})
+		.catch(function(err) {
+			self.dependencies['logger-service'].error(self.name + '::_reconfigure:\n', err);
+		});
+	},
+
+	'_setupBookshelf': function(callback) {
+		try {
+			var knexInstance = knex(this.$config);
+			knexInstance.on('query', this._databaseQuery.bind(this));
+			knexInstance.on('query-error', this._databaseQueryError.bind(this));
+
+			this['$database'] = bookshelf(knexInstance);
+			if(callback) callback(null);
+		}
+		catch(err) {
+			console.error(this.name + '::_setupBookshelf error: ', err);
+		}
+	},
+
+	'_teardownBookshelf': function(callback) {
+		var self = this;
+
+		self.$database.knex.destroy()
+		.then(function() {
+			delete self['$database'];
+
+			if(callback) callback(null);
+			return null;
+		})
+		.catch(function(destroyErr) {
+			if(callback) callback(destroyErr);
 		});
 	},
 
