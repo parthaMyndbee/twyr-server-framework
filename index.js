@@ -200,6 +200,8 @@ else {
 			timeoutMonitor[cluster.worker.id] = setTimeout(function() {
 				cluster.worker.kill();
 			}, 2000);
+
+			timeoutMonitor[cluster.worker.id].unref();
 			return null;
 		})
 		.catch(function (err) {
