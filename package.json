@@ -31,6 +31,7 @@
 		"bookshelf": "*",
 		"bluebird": "*",
 		"chokidar": "*",
+		"deep-equal": "*",
 		"deepmerge": "*",
 		"dependency-graph" :"*",
 		"fs-extra": "*",

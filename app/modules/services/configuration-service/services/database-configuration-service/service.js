@@ -20,7 +20,8 @@ var base = require('./../../../service-base').baseService,
 /**
  * Module dependencies, required for this module
  */
-var inflection = require('inflection'),
+var deepEqual = require('deep-equal'),
+	inflection = require('inflection'),
 	knex = require('knex'),
 	lodash = require('lodash'),
 	path = require('path'),
@@ -149,7 +150,7 @@ var databaseConfigurationService = prime({
 			return;
 		}
 
-		if(JSON.stringify(cachedModule.configuration, null, '\t') == JSON.stringify(config, null, '\t')) {
+		if(deepEqual(cachedModule.configuration, config)) {
 			if(callback) callback(null, cachedModule.configuration);
 			return;
 		}
@@ -218,7 +219,7 @@ var databaseConfigurationService = prime({
 		if(!cachedModule)
 			return;
 
-		if(JSON.stringify(cachedModule.configuration, null, '\t') == JSON.stringify(config, null, '\t')) {
+		if(deepEqual(cachedModule.configuration, config)) {
 			return;
 		}
 
@@ -383,9 +384,9 @@ var databaseConfigurationService = prime({
 			if(!result.rows.length)
 				return;
 
-			var newConfiguration = JSON.stringify(result.rows[0].configuration, null, '\t'),
+			var newConfiguration = result.rows[0].configuration,
 				newEnabled = result.rows[0].enabled,
-				oldConfiguration = JSON.stringify(self['$cachedMap'][data.payload]['configuration'], null, '\t'),
+				oldConfiguration = self['$cachedMap'][data.payload]['configuration'],
 				oldEnabled = self['$cachedMap'][data.payload]['enabled'];
 
 			if(oldEnabled != newEnabled) {
@@ -393,7 +394,7 @@ var databaseConfigurationService = prime({
 				emitStateChangeEvent = true;
 			}
 
-			if(oldConfiguration != newConfiguration) {
+			if(!deepEqual(oldConfiguration, newConfiguration)) {
 				self['$cachedMap'][data.payload]['configuration'] = result.rows[0].configuration;
 				emitConfigChangeEvent = true;
 			}

@@ -21,6 +21,7 @@ var base = require('./../../../service-base').baseService,
  * Module dependencies, required for this module
  */
 var chokidar = require('chokidar'),
+	deepEqual = require('deep-equal'),
 	path = require('path'),
 	filesystem = promises.promisifyAll(require('fs-extra'));
 
@@ -107,7 +108,7 @@ var fileConfigurationService = prime({
 			configPath = path.join(rootPath, 'config', env, path.relative(rootPath, module.basePath).replace('app/modules', '') + '.js'),
 			configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 
-		if(JSON.stringify(self['$cacheMap'][configPath], null, '\t') == JSON.stringify(config, null, '\t')) {
+		if(deepEqual(self['$cacheMap'][configPath], config)) {
 			if(callback) callback(null, config);
 			return;
 		}
@@ -141,6 +142,7 @@ var fileConfigurationService = prime({
 			env = (process.env.NODE_ENV || 'development').toLowerCase(),
 			module = path.relative(rootPath, filePath).replace('config/' + env + '/', '').replace('.js', '');
 
+		self['$cacheMap'][filePath] = require(filePath).config;
 		self.$module.emit('new-config', self.name, module, require(filePath).config);
 	},
 
@@ -152,10 +154,11 @@ var fileConfigurationService = prime({
 
 		delete require.cache[filePath];
 		setTimeout(function() {
-			if(JSON.stringify(self['$cacheMap'][filePath], null, '\t') == JSON.stringify(require(filePath).config, null, '\t')) {
+			if(deepEqual(self['$cacheMap'][filePath], require(filePath).config)) {
 				return;
 			}
 
+			self['$cacheMap'][filePath] = require(filePath).config;
 			self.$module.emit('update-config', self.name, module, require(filePath).config);
 		}, 500);
 	},
@@ -167,6 +170,8 @@ var fileConfigurationService = prime({
 			module = path.relative(rootPath, filePath).replace('config/' + env + '/', '').replace('.js', '');
 
 		delete require.cache[filePath];
+		delete self['$cacheMap'][filePath];
+
 		self.$module.emit('delete-config', self.name, module);
 	},
 
@@ -177,7 +182,7 @@ var fileConfigurationService = prime({
 			configPath = path.join(rootPath, 'config', env, configUpdateModule + '.js'),
 			configString = 'exports.config = (' + JSON.stringify(config, null, '\t') + ');';
 
-		if(JSON.stringify(self['$cacheMap'][configPath], null, '\t') == JSON.stringify(config, null, '\t')) {
+		if(deepEqual(self['$cacheMap'][configPath], config)) {
 			return;
 		}
 
