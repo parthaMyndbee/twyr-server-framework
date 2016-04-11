@@ -1,10 +1,10 @@
 /*
  * Name			: app/modules/services/pubsub-service/service.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
- * Version		: 0.9.1.4
+ * Version		: 0.9.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
- * Description	: The Twy'r Server Umbrella Publish/Subscribe Service
+ * Description	: The Twy'r Server Publish/Subscribe Service - based on Ascoltatori
  *
  */
 
@@ -50,6 +50,19 @@ var pubsubService = prime({
 				if(callback) callback(setupErr);
 			});
 		});
+	},
+
+	'getInterface': function () {
+		return {
+			'publish': this.publish.bind(this),
+			'publishAsync': this.publishAsync.bind(this),
+
+			'subscribe': this.subscribe.bind(this),
+			'subscribeAsync': this.subscribeAsync.bind(this),
+
+			'unsubscribe': this.unsubscribe.bind(this),
+			'unsubscribeAsync': this.unsubscribeAsync.bind(this)
+		};
 	},
 
 	'publish': function(strategy, topic, data, options, callback) {

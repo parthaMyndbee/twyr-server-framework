@@ -1,7 +1,7 @@
 /*
  * Name			: index.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
- * Version		: 0.9.1.4
+ * Version		: 0.9.2
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
  * Description	: Entry point into the Twy'r Server Framework
@@ -67,18 +67,17 @@ if (cluster.isMaster) {
 			console.log('\n');
 		})
 		.on('disconnect', function(worker) {
-			console.log('Twyr Server #' + worker.id + ': Disconnected\nClearing timeout: ' + JSON.stringify(timeoutMonitor[worker.id]));
+			console.log('Twyr Server #' + worker.id + ': Disconnected');
 			clearTimeout(timeoutMonitor[worker.id]);
+			if (cluster.isMaster && config['restart']) cluster.fork();
 		})
 		.on('exit', function(worker, code, signal) {
 			console.log('Twyr Server #' + worker.id + ': Exited with code: ' + code + ' on signal: ' + signal);
 			clearTimeout(timeoutMonitor[worker.id]);
-			if (cluster.isMaster && config['restart']) cluster.fork();
 		})
 		.on('death', function(worker) {
 			console.error('Twyr Server #' + worker.pid + ': Death!');
 			clearTimeout(timeoutMonitor[worker.id]);
-			if (cluster.isMaster && config['restart']) cluster.fork();
 		});
 
 	// Fork workers.

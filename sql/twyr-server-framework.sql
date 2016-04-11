@@ -36,10 +36,11 @@ CREATE EXTENSION "uuid-ossp"
 CREATE TABLE public.modules(
 	id uuid NOT NULL DEFAULT uuid_generate_v4(),
 	parent_id uuid,
-	type public.module_type DEFAULT 'component',
+	type public.module_type NOT NULL DEFAULT 'component',
 	name text NOT NULL,
 	display_name text NOT NULL,
-	configuration json DEFAULT '{}'::json,
+	description text NOT NULL DEFAULT 'Another Twyr Module',
+	configuration json NOT NULL DEFAULT '{}'::json,
 	enabled boolean NOT NULL DEFAULT true::boolean,
 	created_at timestamptz NOT NULL DEFAULT now(),
 	CONSTRAINT pk_modules PRIMARY KEY (id)

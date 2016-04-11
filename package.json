@@ -40,6 +40,7 @@
 		"lodash": "*",
 		"node-print": "*",
 		"node-uuid": "*",
+		"patrun": "*",
 		"pg": "*",
 		"prime":"*",
 		"hiredis": "*",

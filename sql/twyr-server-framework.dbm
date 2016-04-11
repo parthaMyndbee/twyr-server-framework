@@ -31,7 +31,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="parent_id">
 		<type name="uuid"/>
 	</column>
-	<column name="type" default-value="'component'">
+	<column name="type" not-null="true" default-value="'component'">
 		<type name="public.module_type"/>
 	</column>
 	<column name="name" not-null="true">
@@ -40,7 +40,10 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<column name="display_name" not-null="true">
 		<type name="text"/>
 	</column>
-	<column name="configuration" default-value="'{}'::json">
+	<column name="description" not-null="true" default-value="'Another Twyr Module'">
+		<type name="text"/>
+	</column>
+	<column name="configuration" not-null="true" default-value="'{}'::json">
 		<type name="json"/>
 	</column>
 	<column name="enabled" not-null="true" default-value="true::boolean">
@@ -366,7 +369,7 @@ END;]]></definition>
 	 dst-table="public.modules"
 	 src-required="false" dst-required="false">
 	<line>
-		<position x="717.828" y="96.28"/>
+		<position x="717.828" y="102.28"/>
 	<position x="717.828" y="9"/>
 	<position x="562.885" y="9"/>
 	</line>
