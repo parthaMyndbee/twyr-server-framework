@@ -1,7 +1,7 @@
 /*
  * Name			: app/modules/services/api-service/service.js
  * Author		: Vish Desai (vishwakarma_d@hotmail.com)
- * Version		: 0.9.2
+ * Version		: 0.9.2.1
  * Copyright	: Copyright (c) 2014 - 2016 Vish Desai (https://www.linkedin.com/in/vishdesai).
  * License		: The MITNFA License (https://spdx.org/licenses/MITNFA.html).
  * Description	: The Twy'r Server API Service - allows modules to expose interfaces for use by other modules without direct references to each other
@@ -77,6 +77,9 @@ var apiService = prime({
 	},
 
 	'add': function(pattern, api, callback) {
+		if(typeof(api) == 'function')
+			api = promises.promisify(api);
+
 		this['$patrun'].add(pattern, api);
 		if(callback) callback(null, true);
 	},
@@ -101,6 +104,9 @@ var apiService = prime({
 	},
 
 	'remove': function(pattern, api, callback) {
+		if(typeof(api) == 'function')
+			api = promises.promisify(api);
+
 		var apis = this['$patrun'].find(pattern),
 			idx = apis.indexOf(api);
 
