@@ -44,7 +44,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 		<type name="text"/>
 	</column>
 	<column name="configuration" not-null="true" default-value="'{}'::json">
-		<type name="json"/>
+		<type name="jsonb"/>
 	</column>
 	<column name="enabled" not-null="true" default-value="true::boolean">
 		<type name="boolean"/>
@@ -347,9 +347,24 @@ END;
 	</return-type>
 	<definition><![CDATA[
 BEGIN
-	PERFORM pg_notify('config-change', CAST(NEW.id AS text));
+	IF OLD.configuration = NEW.configuration AND OLD.enabled = NEW.enabled
+	THEN
+		RETURN NEW;
+	END IF;
+
+	IF OLD.configuration <> NEW.configuration
+	THEN
+		PERFORM pg_notify('config-change', CAST(NEW.id AS text));
+	END IF;
+
+	IF OLD.enabled <> NEW.enabled
+	THEN
+		PERFORM pg_notify('state-change', CAST(NEW.id AS text));
+	END IF;
+
 	RETURN NEW;
-END;]]></definition>
+END;
+]]></definition>
 </function>
 
 <trigger name="trigger_notify_config_change" firing-type="AFTER" per-line="true" constraint="false"

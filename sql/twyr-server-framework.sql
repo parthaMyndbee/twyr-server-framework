@@ -40,7 +40,7 @@ CREATE TABLE public.modules(
 	name text NOT NULL,
 	display_name text NOT NULL,
 	description text NOT NULL DEFAULT 'Another Twyr Module',
-	configuration json NOT NULL DEFAULT '{}'::json,
+	configuration jsonb NOT NULL DEFAULT '{}'::json,
 	enabled boolean NOT NULL DEFAULT true::boolean,
 	created_at timestamptz NOT NULL DEFAULT now(),
 	CONSTRAINT pk_modules PRIMARY KEY (id)
@@ -294,9 +294,24 @@ CREATE FUNCTION public.fn_notify_config_change ()
 	AS $$
 
 BEGIN
-	PERFORM pg_notify('config-change', CAST(NEW.id AS text));
+	IF OLD.configuration = NEW.configuration AND OLD.enabled = NEW.enabled
+	THEN
+		RETURN NEW;
+	END IF;
+
+	IF OLD.configuration <> NEW.configuration
+	THEN
+		PERFORM pg_notify('config-change', CAST(NEW.id AS text));
+	END IF;
+
+	IF OLD.enabled <> NEW.enabled
+	THEN
+		PERFORM pg_notify('state-change', CAST(NEW.id AS text));
+	END IF;
+
 	RETURN NEW;
 END;
+
 $$;
 -- ddl-end --
 ALTER FUNCTION public.fn_notify_config_change() OWNER TO postgres;

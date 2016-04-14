@@ -300,6 +300,8 @@ var databaseConfigurationService = prime({
 			if(currentModule.$module) {
 				var moduleType = '';
 				self['$moduleTypes'].forEach(function(type) {
+					if(!currentModule.$module['$' + type]) return;
+
 					if(Object.keys(currentModule.$module['$' + type]).indexOf(currentModule.name) >= 0)
 						moduleType = type;
 				});
@@ -375,34 +377,34 @@ var databaseConfigurationService = prime({
 	},
 
 	'_databaseNotification': function(data) {
-		var self = this,
-			emitConfigChangeEvent = false,
-			emitStateChangeEvent = false;
+		if(data.channel == 'config-change') {
+			this._databaseConfigurationChange(data.payload);
+			return;
+		}
 
-		self.$database.queryAsync('SELECT enabled, configuration FROM modules WHERE id = $1', [data.payload])
+		if(data.channel == 'state-change') {
+			this._databaseStateChange(data.payload);
+			return;
+		}
+	},
+
+	'_databaseNotice': function() {
+		console.log(this.name + '::_databaseNotification: ', JSON.stringify(arguments, null, '\t'));
+	},
+
+	'_databaseConfigurationChange': function(moduleId) {
+		var self = this;
+
+		self.$database.queryAsync('SELECT configuration FROM modules WHERE id = $1', [moduleId])
 		.then(function(result) {
 			if(!result.rows.length)
-				return;
-
-			var newConfiguration = result.rows[0].configuration,
-				newEnabled = result.rows[0].enabled,
-				oldConfiguration = self['$cachedMap'][data.payload]['configuration'],
-				oldEnabled = self['$cachedMap'][data.payload]['enabled'];
-
-			if(oldEnabled != newEnabled) {
-				self['$cachedMap'][data.payload]['enabled'] = newEnabled;
-				emitStateChangeEvent = true;
-			}
-
-			if(!deepEqual(oldConfiguration, newConfiguration)) {
-				self['$cachedMap'][data.payload]['configuration'] = result.rows[0].configuration;
-				emitConfigChangeEvent = true;
-			}
-
-			if(!(emitConfigChangeEvent || emitStateChangeEvent))
 				return null;
 
-			return self.$database.queryAsync('SELECT name, type FROM fn_get_module_ancestors($1) ORDER BY level DESC', [data.payload]);
+			if(deepEqual(self['$cachedMap'][moduleId]['configuration'], result.rows[0].configuration))
+				return null;
+
+			self['$cachedMap'][moduleId]['configuration'] = result.rows[0].configuration;
+			return self.$database.queryAsync('SELECT name, type FROM fn_get_module_ancestors($1) ORDER BY level DESC', [moduleId]);
 		})
 		.then(function(result) {
 			if(!result) return null;
@@ -417,23 +419,47 @@ var databaseConfigurationService = prime({
 				module.push(pathSegment.name);
 			});
 
-			if(emitConfigChangeEvent) {
-				self.$module.emit('update-config', self.name, module.join('/'), self['$cachedMap'][data.payload]['configuration']);
-			}
-
-			if(emitStateChangeEvent) {
-				self.$module.emit('update-state', self.name, module.join('/'), self['$cachedMap'][data.payload]['enabled']);
-			}
-
+			self.$module.emit('update-config', self.name, module.join('/'), self['$cachedMap'][moduleId]['configuration']);
 			return null;
 		})
 		.catch(function(err) {
-			console.error('Error retrieving configuration for ' + data.payload + ':\n', err);
+			console.error('Error retrieving configuration for ' + moduleId + ':\n', err);
 		});
 	},
 
-	'_databaseNotice': function() {
-		console.log(this.name + '::_databaseNotification: ', JSON.stringify(arguments, null, '\t'));
+	'_databaseStateChange': function(moduleId) {
+		var self = this;
+
+		self.$database.queryAsync('SELECT enabled FROM modules WHERE id = $1', [moduleId])
+		.then(function(result) {
+			if(!result.rows.length)
+				return null;
+
+			if(self['$cachedMap'][moduleId]['enabled'] == result.rows[0].enabled)
+				return null;
+
+			self['$cachedMap'][moduleId]['enabled'] = result.rows[0].enabled;
+			return self.$database.queryAsync('SELECT name, type FROM fn_get_module_ancestors($1) ORDER BY level DESC', [moduleId]);
+		})
+		.then(function(result) {
+			if(!result) return null;
+			result = result.rows;
+
+			result.shift();
+			if(!result.length) return null;
+
+			var module = [];
+			result.forEach(function(pathSegment) {
+				module.push(inflection.pluralize(pathSegment.type));
+				module.push(pathSegment.name);
+			});
+
+			self.$module.emit('update-state', self.name, module.join('/'), self['$cachedMap'][moduleId]['enabled']);
+			return null;
+		})
+		.catch(function(err) {
+			console.error('Error retrieving state for ' + moduleId + ':\n', err);
+		});
 	},
 
 	'name': 'database-configuration-service',
