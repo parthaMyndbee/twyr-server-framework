@@ -192,7 +192,7 @@ var configurationService = prime({
 		});
 
 		var currentModule = self._getModuleFromPath(stateUpdateModule);
-		if(currentModule) currentModule['$enabled'] = state;
+		if(currentModule) currentModule._changeState(state);
 	},
 
 	'_getModuleFromPath': function(pathFromRoot) {

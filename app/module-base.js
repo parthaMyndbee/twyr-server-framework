@@ -171,6 +171,11 @@ var twyrModuleBase = prime({
 		console.log(this.name + '::_reconfigure:\n' + JSON.stringify(newConfig, null, '\t'));
 	},
 
+	'_changeState': function(newState) {
+		console.log(this.name + '::_changeState: ' + newState);
+		this['$enabled'] = newState;
+	},
+
 	'_exists': function (path, mode, callback) {
 		filesystem.access(path, mode || filesystem.F_OK, function (err) {
 			if(callback) callback(null, !err);
