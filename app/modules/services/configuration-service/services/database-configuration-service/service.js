@@ -76,7 +76,7 @@ var databaseConfigurationService = prime({
 			self['$database'].on('notice', self._databaseNotice.bind(self));
 			self['$database'].on('notification', self._databaseNotification.bind(self));
 
-			return self['$database'].queryAsync('LISTEN "config-change"');
+			return promises.all([self['$database'].queryAsync('LISTEN "config-change"'), self['$database'].queryAsync('LISTEN "state-change"')]);
 		})
 		.then(function() {
 			return self._reloadAllConfigAsync();
