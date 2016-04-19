@@ -29,6 +29,8 @@ var timeoutMonitor = {},
 	clusterId = uuid.v4().toString().replace(/-/g, ''),
 	cluster = promises.promisifyAll(require('cluster'));
 
+process.title = config['title'].substring(0, 11);
+
 // Instantiate the application, and start the execution
 if (cluster.isMaster) {
 	cluster
