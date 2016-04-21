@@ -1,24 +1,24 @@
 exports.config = ({
-	"Console": {
+	"File": {
+		"json": true,
 		"level": "debug",
+		"maxsize": 10485760,
 		"colorize": true,
+		"filename": "logs/twyr-server.log",
+		"maxFiles": 15,
+		"tailable": true,
 		"timestamp": true,
-		"json": false,
 		"prettyPrint": true,
+		"zippedArchive": true,
 		"handleExceptions": true,
 		"humanReadableUnhandledException": true
 	},
-	"File": {
+	"Console": {
+		"json": false,
 		"level": "debug",
 		"colorize": true,
 		"timestamp": true,
-		"json": true,
 		"prettyPrint": true,
-		"filename": "logs/twyr-server.log",
-		"maxsize": 10485760,
-		"maxFiles": 15,
-		"tailable": true,
-		"zippedArchive": true,
 		"handleExceptions": true,
 		"humanReadableUnhandledException": true
 	}
