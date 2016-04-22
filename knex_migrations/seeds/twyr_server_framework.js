@@ -10,6 +10,7 @@ exports.seed = function(knex, Promise) {
 			.then(function(parentId) {
 				parentId = parentId[0];
 				return Promise.all([
+					parentId,
 					knex("modules").insert({ 'parent_id': parentId, 'type': 'service', 'name': 'logger-service', 'display_name': 'Logger Service', 'description': 'The Twy\'r Server Logger Service' }),
 					knex("modules").insert({ 'parent_id': parentId, 'type': 'service', 'name': 'cache-service', 'display_name': 'Cache Service', 'description': 'The Twy\'r Server Cache Service - based on Redis' }),
 					knex("modules").insert({ 'parent_id': parentId, 'type': 'service', 'name': 'pubsub-service', 'display_name': 'Publish/Subscribe Service', 'description': 'The Twy\'r Server Publish/Subscribe Service - based on Ascoltatori' }),
@@ -23,6 +24,16 @@ exports.seed = function(knex, Promise) {
 							knex("modules").insert({ 'parent_id': configSrvcId, 'type': 'service', 'name': 'database-configuration-service', 'display_name': 'Database Configuration Service', 'description': 'The Twy\'r Server Database-based Configuration Service' })
 						]);
 					}),
+				]);
+			})
+			.then(function(parentId) {
+				parentId = parentId[0];
+
+				return Promise.all([
+					knex("permissions").insert({ 'module_id': parentId, 'name': 'public', 'display_name': 'Public User Permissions', 'description': 'The Twy\'r Server Permissions for non-logged-in Users' }),
+					knex("permissions").insert({ 'module_id': parentId, 'name': 'registered', 'display_name': 'Registered User Permissions', 'description': 'The Twy\'r Server Permissions for logged-in Users' }),
+					knex("permissions").insert({ 'module_id': parentId, 'name': 'administrator', 'display_name': 'Administrator Permissions', 'description': 'The Twy\'r Server Permissions for Administrators' }),
+					knex("permissions").insert({ 'module_id': parentId, 'name': 'super-administrator', 'display_name': 'Super Administrator Permissions', 'description': 'The Twy\'r Server Permissions for Super Administrators' })
 				]);
 			})
 		]);
