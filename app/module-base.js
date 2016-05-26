@@ -188,15 +188,29 @@ var twyrModuleBase = prime({
 			self.$services[serviceName]._parentReconfigure();
 		});
 
+		if(self.$middlewares)
+		Object.keys(self.$middlewares).forEach(function(middlewareName) {
+			self.$middlewares[middlewareName]._parentReconfigure();
+		});
+
 		if(self.$components)
 		Object.keys(self.$components).forEach(function(componentName) {
 			self.$components[componentName]._parentReconfigure();
+		});
+
+		if(self.$templates)
+		Object.keys(self.$templates).forEach(function(templateName) {
+			self.$templates[templateName]._parentReconfigure();
 		});
 
 		if(self.$dependants)
 		Object.keys(self.$dependants).forEach(function(dependantName) {
 			self.$dependants[dependantName]._dependencyReconfigure(self.name);
 		});
+
+		if(self.$module) {
+			self.$module._subModuleReconfigure(self.name);
+		}
 	},
 
 	'_changeState': function(newState) {
@@ -233,6 +247,12 @@ var twyrModuleBase = prime({
 				Object.keys(self.$dependants).forEach(function(dependantName) {
 					self.$dependants[dependantName]._dependencyStateChange(self.name, newState);
 				});
+
+				if(self.$module) {
+					self.$module._subModuleStateChange(self.name, newState);
+				}
+
+				return null;
 			})
 			.catch(function(err) {
 				console.error(self.name + '::_changeState: ' + newState + '\nError: ' + JSON.stringify(err, null, '\t'));
@@ -269,6 +289,12 @@ var twyrModuleBase = prime({
 				Object.keys(self.$dependants).forEach(function(dependantName) {
 					self.$dependants[dependantName]._dependencyStateChange(self.name, newState);
 				});
+
+				if(self.$module) {
+					self.$module._subModuleStateChange(self.name, newState);
+				}
+
+				return null;
 			})
 			.catch(function(err) {
 				console.error(self.name + '::_changeState: ' + newState + '\nError: ' + JSON.stringify(err, null, '\t'));
@@ -284,12 +310,20 @@ var twyrModuleBase = prime({
 		if((process.env.NODE_ENV || 'development') == 'development') console.log(this.name + '::_dependencyReconfigure: ' + dependency);
 	},
 
+	'_subModuleReconfigure': function(subModule) {
+		if((process.env.NODE_ENV || 'development') == 'development') console.log(this.name + '::_subModuleReconfigure: ' + subModule);
+	},
+
 	'_parentStateChange': function(state) {
 		if((process.env.NODE_ENV || 'development') == 'development') console.log(this.name + '::_parentStateChange: ' + self.$module.name + ' is now ' + (state ? 'enabled' : 'disabled'));
 	},
 
 	'_dependencyStateChange': function(dependency, state) {
 		if((process.env.NODE_ENV || 'development') == 'development') console.log(this.name + '::_dependencyStateChange: ' + dependency + ' is now ' + (state ? 'enabled' : 'disabled'));
+	},
+
+	'_subModuleStateChange': function(subModule, state) {
+		if((process.env.NODE_ENV || 'development') == 'development') console.log(this.name + '::_subModuleStateChange: ' + subModule + ' is now ' + (state ? 'enabled' : 'disabled'));
 	},
 
 	'_exists': function (path, mode, callback) {

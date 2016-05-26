@@ -31,6 +31,7 @@ var twyrComponentBase = prime({
 		if(this.dependencies.indexOf('database-service') < 0)
 			this.dependencies.push('database-service');
 
+		this['$router'] = require('express').Router();
 		this._checkPermissionAsync = promises.promisify(this._checkPermission);
 
 		base.call(this, module, loader);
@@ -46,9 +47,7 @@ var twyrComponentBase = prime({
 				return;
 			}
 
-			this['$router'] = require('express').Router();
 			self._setupRouter();
-
 			if(callback) callback(null, status);
 		});
 	},
@@ -111,12 +110,17 @@ var twyrComponentBase = prime({
 	},
 
 	'_deleteRoutes': function() {
-		// NOTICE: Undocumented Express API. Be careful upgrading :-)
+		// NOTICE: Undocumented ExpressJS API. Be careful upgrading :-)
 		if(!this.$router) return;
 		this.$router.stack.length = 0;
 	},
 
-	'_checkPermission': function(user, tenant, permission, callback) {
+	'_checkPermission': function(user, permission, tenant, callback) {
+		if(tenant && !callback) {
+			callback = tenant;
+			tenant = null;
+		}
+
 		if(!user) {
 			if(callback) callback(null, false);
 			return;
@@ -132,13 +136,8 @@ var twyrComponentBase = prime({
 			return;
 		}
 
-		if(tenant && !callback) {
-			callback = tenant;
-			tenant = null;
-		}
-
+		var allowed = false;
 		if(!tenant) {
-			var allowed = false;
 			Object.keys(user.tenants).forEach(function(userTenant) {
 				allowed = allowed || ((user.tenants[userTenant]['permissions']).indexOf(permission) >= 0);
 			});
@@ -147,15 +146,35 @@ var twyrComponentBase = prime({
 			return;
 		}
 
+		if(!user.tenants[tenant]) {
+			if(callback) callback(null, false);
+			return;
+		}
+
+		if((user.tenants[tenant]['permissions']).indexOf(permission)) {
+			if(callback) callback(null, true);
+			return;
+		}
+
+		if(user.tenants[tenant]['tenantParents']) {
+			allowed = false;
+			user.tenants[tenant]['tenantParents'].forEach(function(tenantParent) {
+				if(!user.tenants[tenantParent]) return;
+				allowed = allowed || ((user.tenants[tenantParent]['permissions']).indexOf(permission) >= 0);
+			});
+
+			if(callback) callback(null, allowed);
+			return;
+		}
+
+		// Should NEVER execute - tenantParents should be set when the User logs in
 		var database = this.dependencies['database-service'];
 		database.knex.raw('SELECT id FROM fn_get_tenant_ancestors(?);', [tenant])
 		.then(function(tenantParents) {
-			tenantParents = tenantParents.rows;
-
-			var allowed = false;
-			tenantParents.forEach(function(tenantParent) {
-				if(!user.tenants[tenantParent]) return;
-				allowed = allowed || ((user.tenants[tenantParent]['permissions']).indexOf(permission) >= 0);
+			allowed = false;
+			tenantParents.rows.forEach(function(tenantParent) {
+				if(!user.tenants[tenantParent.id]) return;
+				allowed = allowed || ((user.tenants[tenantParent.id]['permissions']).indexOf(permission) >= 0);
 			});
 
 			if(callback) callback(null, allowed);
