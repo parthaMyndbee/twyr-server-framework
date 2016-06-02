@@ -41,45 +41,73 @@ var moduleLoader = prime({
 	},
 
 	'load': function(configSrvc, basePath, callback) {
-		var promiseResolutions = [],
-			self = this;
+		var self = this,
+			finalStatus = [];
 
 		Object.defineProperty(this, '$basePath', {
 			'__proto__': null,
 			'value': path.resolve(basePath)
 		});
 
-		promiseResolutions.push(self._loadUtilitiesAsync(configSrvc));
-		promiseResolutions.push(self._loadServicesAsync(configSrvc));
-		promiseResolutions.push(self._loadComponentsAsync(configSrvc));
-
-		promises.all(promiseResolutions)
+		self._loadUtilitiesAsync(configSrvc)
 		.then(function(status) {
 			if(!status) throw status;
-			if(callback) callback(null, self._filterStatus(status));
+			finalStatus.push(status);
 
+			return self._loadServicesAsync(configSrvc);
+		})
+		.then(function(status) {
+			if(!status) throw status;
+			finalStatus.push(status);
+
+			if(!configSrvc) configSrvc = self.$module.$services['configuration-service'].getInterface();
+			return self._loadComponentsAsync(configSrvc);
+		})
+		.then(function(status) {
+			if(!status) throw status;
+			finalStatus.push(status);
+
+			return self._loadTemplatesAsync(configSrvc);
+		})
+		.then(function(status) {
+			if(!status) throw status;
+			finalStatus.push(status);
+
+			if(callback) callback(null, self._filterStatus(finalStatus));
 			return null;
 		})
 		.catch(function(err) {
+			console.error(self.$module.name + '::load error: ' + JSON.stringify(err, null, '\t'));
 			if(callback) callback(err);
 		});
 	},
 
 	'initialize': function(callback) {
-		var promiseResolutions = [],
-			self = this;
+		var self = this,
+			finalStatus = [];
 
-		promiseResolutions.push(self._initializeServicesAsync());
-		promiseResolutions.push(self._initializeComponentsAsync());
-
-		promises.all(promiseResolutions)
+		self._initializeServicesAsync()
 		.then(function(status) {
 			if(!status) throw status;
-			if(callback) callback(null, self._filterStatus(status));
+			finalStatus.push(status);
 
+			return self._initializeComponentsAsync();
+		})
+		.then(function(status) {
+			if(!status) throw status;
+			finalStatus.push(status);
+
+			return self._initializeTemplatesAsync();
+		})
+		.then(function(status) {
+			if(!status) throw status;
+			finalStatus.push(status);
+
+			if(callback) callback(null, self._filterStatus(finalStatus));
 			return null;
 		})
 		.catch(function(err) {
+			console.error(self.$module.name + '::initialize error: ' + JSON.stringify(err, null, '\t'));
 			if(callback) callback(err);
 		});
 	},
@@ -171,13 +199,13 @@ var moduleLoader = prime({
 
 	'_loadUtilities': function(configSrvc, callback) {
 		try {
+			if(!this.$module.$utilities) {
+				this.$module['$utilities'] = {};
+			}
+
 			if(!(this.$module.$config && this.$module.$config.utilities && this.$module.$config.utilities.path)) {
 				if(callback) callback(null, { 'self': this.$module.name, 'type': 'utilities', 'status': null });
 				return;
-			}
-
-			if(!this.$module.$utilities) {
-				this.$module['$utilities'] = {};
 			}
 
 			var definedUtilities = this._findFiles(path.join(this.$basePath, this.$module.$config.utilities.path), 'utility.js'),
@@ -208,13 +236,13 @@ var moduleLoader = prime({
 			self = this;
 
 		try {
+			if(!this.$module.$services) {
+				this.$module['$services'] = {};
+			}
+
 			if(!(this.$module.$config && this.$module.$config.services && this.$module.$config.services.path)) {
 				if(callback) callback(null, { 'self': this.$module.name, 'type': 'services', 'status': null });
 				return;
-			}
-
-			if(!this.$module.$services) {
-				this.$module['$services'] = {};
 			}
 
 			var definedServices = this._findFiles(path.join(this.$basePath, this.$module.$config.services.path), 'service.js'),
@@ -301,13 +329,13 @@ var moduleLoader = prime({
 			self = this;
 
 		try {
+			if(!this.$module.$components) {
+				this.$module['$components'] = {};
+			}
+
 			if(!(this.$module.$config && this.$module.$config.components && this.$module.$config.components.path)) {
 				if(callback) callback(null, { 'self': this.$module.name, 'type': 'components', 'status': null });
 				return;
-			}
-
-			if(!this.$module.$components) {
-				this.$module['$components'] = {};
 			}
 
 			var definedComponents = this._findFiles(path.join(this.$basePath, this.$module.$config.components.path), 'component.js');
