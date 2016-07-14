@@ -3,7 +3,7 @@
 CAUTION: Do not modify this file unless you know what you are doing.
          Unexpected results may occur if the code is changed deliberately.
 -->
-<dbmodel pgmodeler-ver="0.8.1" last-position="0,0" last-zoom="1"
+<dbmodel pgmodeler-ver="0.8.1" last-position="0,0" last-zoom="0.5"
 	 default-schema="public" default-owner="postgres">
 <database name="twyr-server-framework">
 </database>
@@ -24,11 +24,11 @@ CAUTION: Do not modify this file unless you know what you are doing.
 <table name="modules">
 	<schema name="public"/>
 	<role name="postgres"/>
-	<position x="273" y="19"/>
+	<position x="309" y="215"/>
 	<column name="id" not-null="true" default-value="uuid_generate_v4()">
 		<type name="uuid"/>
 	</column>
-	<column name="parent_id">
+	<column name="parent">
 		<type name="uuid"/>
 	</column>
 	<column name="type" not-null="true" default-value="'component'">
@@ -61,7 +61,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	 concurrent="false" unique="true" fast-update="false" buffering="false"
 	 index-type="btree" factor="0">
 		<idxelement use-sorting="true" nulls-first="false" asc-order="true">
-			<column name="parent_id"/>
+			<column name="parent"/>
 		</idxelement>
 		<idxelement use-sorting="true" nulls-first="false" asc-order="true">
 			<column name="name"/>
@@ -86,7 +86,7 @@ CAUTION: Do not modify this file unless you know what you are doing.
 	<parameter name="id">
 		<type name="uuid"/>
 	</parameter>
-	<parameter name="parent_id">
+	<parameter name="parent">
 		<type name="uuid"/>
 	</parameter>
 	<parameter name="name">
@@ -106,7 +106,7 @@ BEGIN
 		SELECT
 			1 AS level,
 			A.id,
-			A.parent_id,
+			A.parent,
 			A.name,
 			A.type
 		FROM
@@ -117,26 +117,26 @@ BEGIN
 		SELECT
 			q.level + 1,
 			B.id,
-			B.parent_id,
+			B.parent,
 			B.name,
 			B.type
 		FROM
 			q,
 			modules B
 		WHERE
-			B.id = q.parent_id
+			B.id = q.parent
 	)
 	SELECT DISTINCT
 		q.level,
 		q.id,
-		q.parent_id,
+		q.parent,
 		q.name,
 		q.type
 	FROM
 		q
 	ORDER BY
 		q.level,
-		q.parent_id;
+		q.parent;
 END;
 ]]></definition>
 </function>
@@ -159,7 +159,7 @@ END;
 	<parameter name="id">
 		<type name="uuid"/>
 	</parameter>
-	<parameter name="parent_id">
+	<parameter name="parent">
 		<type name="uuid"/>
 	</parameter>
 	<parameter name="name">
@@ -182,7 +182,7 @@ BEGIN
 		SELECT
 			1 AS level,
 			A.id,
-			A.parent_id,
+			A.parent,
 			A.name,
 			A.type,
 			fn_is_module_enabled(A.id) AS enabled
@@ -194,7 +194,7 @@ BEGIN
 		SELECT
 			q.level + 1,
 			B.id,
-			B.parent_id,
+			B.parent,
 			B.name,
 			B.type,
 			fn_is_module_enabled(B.id) AS enabled
@@ -202,12 +202,12 @@ BEGIN
 			q,
 			modules B
 		WHERE
-			B.parent_id = q.id
+			B.parent = q.id
 	)
 	SELECT DISTINCT
 		q.level,
 		q.id,
-		q.parent_id,
+		q.parent,
 		q.name,
 		q.type,
 		q.enabled
@@ -215,7 +215,7 @@ BEGIN
 		q
 	ORDER BY
 		q.level,
-		q.parent_id;
+		q.parent;
 END;
 ]]></definition>
 </function>
@@ -274,12 +274,12 @@ END;
 DECLARE
 	is_module_in_tree	INTEGER;
 BEGIN
-	IF NEW.parent_id IS NULL
+	IF NEW.parent IS NULL
 	THEN
 		RETURN NEW;
 	END IF;
 
-	IF NEW.id = NEW.parent_id
+	IF NEW.id = NEW.parent
 	THEN
 		RAISE SQLSTATE '2F003' USING MESSAGE = 'Module cannot be its own parent';
 		RETURN NULL;
@@ -290,7 +290,7 @@ BEGIN
 	SELECT
 		COUNT(id)
 	FROM
-		fn_get_module_ancestors(NEW.parent_id)
+		fn_get_module_ancestors(NEW.parent)
 	WHERE
 		id = NEW.id
 	INTO
@@ -375,7 +375,7 @@ END;
 
 <constraint name="fk_modules_modules" type="fk-constr" comparison-type="MATCH FULL"
 	 upd-action="NO ACTION" del-action="NO ACTION" ref-table="public.modules" table="public.modules">
-	<columns names="parent_id" ref-type="src-columns"/>
+	<columns names="parent" ref-type="src-columns"/>
 	<columns names="id" ref-type="dst-columns"/>
 </constraint>
 
@@ -384,9 +384,9 @@ END;
 	 dst-table="public.modules"
 	 src-required="false" dst-required="false">
 	<line>
-		<position x="717.828" y="102.28"/>
-	<position x="717.828" y="9"/>
-	<position x="562.885" y="9"/>
+		<position x="753.828" y="298.28"/>
+	<position x="753.828" y="205"/>
+	<position x="598.885" y="205"/>
 	</line>
 </relationship>
 

@@ -275,7 +275,7 @@ var databaseConfigurationService = prime({
 			var serverModule = self;
 			while(serverModule.$module) serverModule = serverModule.$module;
 
-			return self.$database.queryAsync('SELECT id FROM modules WHERE name = $1 AND parent_id IS NULL', [serverModule.name]);
+			return self.$database.queryAsync('SELECT id FROM modules WHERE name = $1 AND parent IS NULL', [serverModule.name]);
 		})
 		.then(function(result) {
 			if(!result.rows.length) {
@@ -342,7 +342,7 @@ var databaseConfigurationService = prime({
 		}
 
 		configArray.forEach(function(config) {
-			if(config.parent_id != parentId)
+			if(config.parent != parentId)
 				return;
 
 			var configObj = {};

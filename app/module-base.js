@@ -128,9 +128,8 @@ var twyrModuleBase = prime({
 		this.$loader.stopAsync()
 		.then(function(status) {
 			if(!status) throw status;
-			if(callback) callback(null, status);
 
-			self['dependencies'] = null;
+			if(callback) callback(null, status);
 			return null;
 		})
 		.catch(function(err) {

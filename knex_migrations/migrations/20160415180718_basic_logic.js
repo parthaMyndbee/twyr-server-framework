@@ -5,7 +5,7 @@ exports.up = function(knex, Promise) {
 		knex.schema.withSchema('public')
 		.raw(
 			'CREATE FUNCTION public.fn_get_module_ancestors (IN moduleid uuid) ' +
-				'RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text,  type public.module_type) ' +
+				'RETURNS TABLE ( level integer,  id uuid,  parent uuid,  name text,  type public.module_type) ' +
 				'LANGUAGE plpgsql ' +
 				'VOLATILE  ' +
 				'CALLED ON NULL INPUT ' +
@@ -18,7 +18,7 @@ exports.up = function(knex, Promise) {
 					'SELECT ' +
 						'1 AS level, ' +
 						'A.id, ' +
-						'A.parent_id, ' +
+						'A.parent, ' +
 						'A.name, ' +
 						'A.type ' +
 					'FROM ' +
@@ -29,26 +29,26 @@ exports.up = function(knex, Promise) {
 					'SELECT ' +
 						'q.level + 1, ' +
 						'B.id, ' +
-						'B.parent_id, ' +
+						'B.parent, ' +
 						'B.name, ' +
 						'B.type ' +
 					'FROM ' +
 						'q, ' +
 						'modules B ' +
 					'WHERE ' +
-						'B.id = q.parent_id ' +
+						'B.id = q.parent ' +
 				') ' +
 				'SELECT DISTINCT ' +
 					'q.level, ' +
 					'q.id, ' +
-					'q.parent_id, ' +
+					'q.parent, ' +
 					'q.name, ' +
 					'q.type ' +
 				'FROM ' +
 					'q ' +
 				'ORDER BY ' +
 					'q.level, ' +
-					'q.parent_id; ' +
+					'q.parent; ' +
 			'END; ' +
 			'$$;'
 		),
@@ -81,7 +81,7 @@ exports.up = function(knex, Promise) {
 		knex.schema.withSchema('public')
 		.raw(
 			'CREATE FUNCTION public.fn_get_module_descendants (IN moduleid uuid) ' +
-				'RETURNS TABLE ( level integer,  id uuid,  parent_id uuid,  name text,  type public.module_type, enabled boolean ) ' +
+				'RETURNS TABLE ( level integer,  id uuid,  parent uuid,  name text,  type public.module_type, enabled boolean ) ' +
 				'LANGUAGE plpgsql ' +
 				'VOLATILE  ' +
 				'CALLED ON NULL INPUT ' +
@@ -94,7 +94,7 @@ exports.up = function(knex, Promise) {
 					'SELECT ' +
 						'1 AS level, ' +
 						'A.id, ' +
-						'A.parent_id, ' +
+						'A.parent, ' +
 						'A.name, ' +
 						'A.type, ' +
 						'fn_is_module_enabled(A.id) AS enabled ' +
@@ -106,7 +106,7 @@ exports.up = function(knex, Promise) {
 					'SELECT ' +
 						'q.level + 1, ' +
 						'B.id, ' +
-						'B.parent_id, ' +
+						'B.parent, ' +
 						'B.name, ' +
 						'B.type, ' +
 						'fn_is_module_enabled(B.id) AS enabled ' +
@@ -114,12 +114,12 @@ exports.up = function(knex, Promise) {
 						'q, ' +
 						'modules B ' +
 					'WHERE ' +
-						'B.parent_id = q.id ' +
+						'B.parent = q.id ' +
 				') ' +
 				'SELECT DISTINCT ' +
 					'q.level, ' +
 					'q.id, ' +
-					'q.parent_id, ' +
+					'q.parent, ' +
 					'q.name, ' +
 					'q.type, ' +
 					'q.enabled ' +
@@ -127,7 +127,7 @@ exports.up = function(knex, Promise) {
 					'q ' +
 				'ORDER BY ' +
 					'q.level, ' +
-					'q.parent_id; ' +
+					'q.parent; ' +
 			'END; ' +
 			'$$;'
 		),
@@ -145,12 +145,12 @@ exports.up = function(knex, Promise) {
 			'DECLARE ' +
 				'is_module_in_tree	INTEGER; ' +
 			'BEGIN ' +
-				'IF NEW.parent_id IS NULL ' +
+				'IF NEW.parent IS NULL ' +
 				'THEN ' +
 					'RETURN NEW; ' +
 				'END IF; ' +
 
-				'IF NEW.id = NEW.parent_id ' +
+				'IF NEW.id = NEW.parent ' +
 				'THEN ' +
 					'RAISE SQLSTATE \'2F003\' USING MESSAGE = \'Module cannot be its own parent\'; ' +
 					'RETURN NULL; ' +
@@ -160,7 +160,7 @@ exports.up = function(knex, Promise) {
 				'SELECT ' +
 					'COUNT(id) ' +
 				'FROM ' +
-					'fn_get_module_ancestors(NEW.parent_id) ' +
+					'fn_get_module_ancestors(NEW.parent) ' +
 				'WHERE ' +
 					'id = NEW.id ' +
 				'INTO ' +

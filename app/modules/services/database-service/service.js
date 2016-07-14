@@ -130,15 +130,15 @@ var databaseService = prime({
 	},
 
 	'_databaseQueryError': function(err, queryData) {
-		this.dependencies['logger-service'].error(this.name + '::_databaseQueryError: ', { 'query': queryData, 'error': err });
+		this.dependencies['logger-service'].error(this.name + '::_databaseQueryError: ' + JSON.stringify(arguments, null, '\t'));
 	},
 
 	'_databaseNotice': function() {
-		this.dependencies['logger-service'].info(this.name + '::_databaseNotice: ', arguments);
+		this.dependencies['logger-service'].info(this.name + '::_databaseNotice: ' + JSON.stringify(arguments, null, '\t'));
 	},
 
 	'_databaseError': function() {
-		this.dependencies['logger-service'].error(this.name + '::_databaseError: ', arguments);
+		this.dependencies['logger-service'].error(this.name + '::_databaseError: ' + JSON.stringify(arguments, null, '\t'));
 	},
 
 	'name': 'database-service',

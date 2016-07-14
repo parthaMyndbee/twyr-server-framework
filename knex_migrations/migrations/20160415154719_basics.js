@@ -7,7 +7,7 @@ exports.up = function(knex, Promise) {
 		knex.schema.withSchema('public')
 		.createTableIfNotExists('modules', function(modTbl) {
 			modTbl.uuid('id').notNullable().primary().defaultTo(knex.raw('uuid_generate_v4()'));
-			modTbl.uuid('parent_id').references('id').inTable('modules').onDelete('CASCADE').onUpdate('CASCADE');
+			modTbl.uuid('parent').references('id').inTable('modules').onDelete('CASCADE').onUpdate('CASCADE');
 			modTbl.specificType('type', 'public.module_type').notNullable().defaultTo('component');
 			modTbl.text('name').notNullable();
 			modTbl.text('display_name').notNullable();
@@ -16,7 +16,7 @@ exports.up = function(knex, Promise) {
 			modTbl.boolean('enabled').notNullable().defaultTo(true);
 			modTbl.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
 			modTbl.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
-			modTbl.index(['parent_id', 'name'], 'uidx_modules_parent_name', 'btree');
+			modTbl.index(['parent', 'name'], 'uidx_modules_parent_name', 'btree');
 		})
 	]);
 };

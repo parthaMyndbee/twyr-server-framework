@@ -28,5 +28,5 @@ exports.config = ({
 	},
 
 	'main' : './app/server',
-	'title': 'twyr-portal'
+	'title': 'twyr-server-framework'
 });
