@@ -43,7 +43,6 @@
 		"patrun": "*",
 		"pg": "*",
 		"prime":"*",
-		"hiredis": "*",
 		"redis": "*",
 		"winston": "*"
 	},

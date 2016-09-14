@@ -67,12 +67,6 @@ var moduleLoader = prime({
 			if(!status) throw status;
 			finalStatus.push(status);
 
-			return self._loadTemplatesAsync(configSrvc);
-		})
-		.then(function(status) {
-			if(!status) throw status;
-			finalStatus.push(status);
-
 			if(callback) callback(null, self._filterStatus(finalStatus));
 			return null;
 		})
@@ -92,12 +86,6 @@ var moduleLoader = prime({
 			finalStatus.push(status);
 
 			return self._initializeComponentsAsync();
-		})
-		.then(function(status) {
-			if(!status) throw status;
-			finalStatus.push(status);
-
-			return self._initializeTemplatesAsync();
 		})
 		.then(function(status) {
 			if(!status) throw status;
@@ -911,4 +899,3 @@ var moduleLoader = prime({
 });
 
 exports.loader = moduleLoader;
-
